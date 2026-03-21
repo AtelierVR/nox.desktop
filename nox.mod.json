@@ -1,0 +1,85 @@
+{
+  "type": "mod",
+  "id": "nox.desktop",
+  "provides": [
+    "fr.hactazia.desktop",
+    "desktop"
+  ],
+  "name": "Desktop",
+  "version": "1.0.0",
+  "description": "Desktop controller for Nox.",
+  "license": "GPL-3.0",
+  "icon": null,
+  "contact": {
+    "email": "hactazia@gmail.com",
+    "source": "https://github.com/AtelierVR/nox.desktop",
+    "website": "https://nox.hactazia.fr/",
+    "issues": "https://github.com/AtelierVR/nox.desktop/issues"
+  },
+  "authors": [
+    {
+      "name": "Hactazia",
+      "email": "hactazia@gmail.com",
+      "website": "https://hactazia.fr/"
+    }
+  ],
+  "contributors": [],
+  "relations": [
+    {
+      "id": "controller",
+      "type": "depends",
+      "version": ">=1.0.0"
+    },
+    {
+      "id": "ui",
+      "type": "depends",
+      "version": ">=1.0.0"
+    },
+    {
+      "id": "avatar",
+      "type": "depends",
+      "version": ">=1.0.0"
+    },
+    {
+      "id": "microphone",
+      "type": "depends",
+      "version": ">=1.0.0"
+    },
+    {
+      "id": "users",
+      "type": "depends",
+      "version": ">=1.0.0"
+    },
+    {
+      "id": "keybinding",
+      "type": "depends",
+      "version": ">=1.0.0"
+    },
+    {
+      "id": "session",
+      "type": "depends",
+      "version": ">=1.0.0"
+    }
+  ],
+  "constraints": [
+    {
+      "type": "after",
+      "id": "ui"
+    },
+    {
+      "type": "after",
+      "id": "avatar"
+    },
+    {
+      "type": "after",
+      "id": "users"
+    }
+  ],
+  "entrypoints": {
+    "client": [
+      "Nox.Desktop.Runtime.Client"
+    ]
+  },
+  "references": [],
+  "permissions": []
+}
