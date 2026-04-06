@@ -99,3 +99,4 @@ mono_crash.*
 .env
 .env*
 build_log.txt
+LICENSE.meta
