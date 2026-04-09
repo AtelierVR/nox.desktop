@@ -44,9 +44,9 @@ namespace Nox.Desktop.Runtime {
 
 		private DesktopController()
 			=> _avatarParameters = new Dictionary<string, object> {
-				["source"] = this,
+				["source"]  = this,
 				["desktop"] = true,
-				["local"] = true
+				["local"]   = true
 			};
 
 		private readonly Dictionary<string, object> _avatarParameters;
@@ -84,7 +84,8 @@ namespace Nox.Desktop.Runtime {
 		/// Remove the current proxy if it is the Desktop proxy.
 		/// </summary>
 		static async internal UniTask<bool> Remove() {
-			if (!IsCurrent()) return false;
+			if (!IsCurrent())
+				return false;
 			return await ControllerAPI.SetCurrent(null);
 		}
 
@@ -93,7 +94,8 @@ namespace Nox.Desktop.Runtime {
 		/// </summary>
 		/// <returns></returns>
 		static async internal UniTask<bool> Make() {
-			if (!IsBetterThanCurrent()) return false;
+			if (!IsBetterThanCurrent())
+				return false;
 
 			var prefab = Client.CoreAPI.AssetAPI.GetAsset<GameObject>("desktop_proxy.prefab");
 			if (!prefab) {
@@ -102,16 +104,16 @@ namespace Nox.Desktop.Runtime {
 			}
 
 			var instance = Instantiate(prefab);
-			var desktop = instance.GetComponent<DesktopController>();
+			var desktop  = instance.GetComponent<DesktopController>();
 
 			if (!desktop) {
 				Logger.LogError("Failed to get desktop proxy component");
 				instance.Destroy();
 				return false;
 			}
-			
+
 			await desktop.Menu.Generate();
-			
+
 			if (!await ControllerAPI.SetCurrent(desktop)) {
 				Logger.LogError("Failed to set Desktop proxy as current");
 				instance.Destroy();
@@ -123,42 +125,43 @@ namespace Nox.Desktop.Runtime {
 
 			desktop._onUserUpdate = Client.CoreAPI.EventAPI.Subscribe("user_update", desktop.OnUserUpdate);
 
-			desktop.gameObject.name = $"[{desktop.GetType().Name}_{desktop.GetInstanceID()}]";
+			desktop.gameObject.name = $"[{desktop.GetType().Name}_{desktop.GetEntityId().GetHashCode()}]";
 			DontDestroyOnLoad(desktop);
 			return true;
 		}
 
 		private void OnUserUpdate(EventData context) {
-			if (!context.TryGet(0, out ICurrentUser user) || user == null || !IsCurrent()) return;
+			if (!context.TryGet(0, out ICurrentUser user) || user == null || !IsCurrent())
+				return;
 			LoadAvatarFromUser(user);
 		}
 
 		private void LoadAvatarFromUser(ICurrentUser user)
-			=> SetAvatar(AvatarIdentifier.From(user?.GetAvatarId())).Forget();
+			=> SetAvatar(user.Avatar).Forget();
 
-		public async UniTask<IRuntimeAvatar> SetAvatar(IAvatarIdentifier identifier, Action<string, float> onProgress = null) {
+		public async UniTask<IRuntimeAvatar> SetAvatar(Identifier identifier, Action<string, float> onProgress = null) {
 			var localPlayer = Client.SessionAPI.TryGet(Client.SessionAPI.Current, out var session)
 				? session.LocalPlayer
 				: null;
 			var playerAvatar = localPlayer as ILocalPlayerAvatar;
 
-			Logger.LogDebug($"Loading avatar for identifier {identifier?.ToString() ?? "null"}");
+			Logger.LogDebug($"Loading avatar for identifier {identifier.ToString() ?? "null"}");
 
-			if (identifier == null || !identifier.IsValid()) {
-				Logger.LogWarning($"Invalid avatar identifier: {identifier?.ToString() ?? "null"}");
+			if (!identifier.IsValid()) {
+				Logger.LogWarning($"Invalid avatar identifier: {identifier.ToString() ?? "null"}");
 				if (playerAvatar != null)
 					await playerAvatar.OnAvatarFailed(new NullReferenceException("Invalid avatar identifier"));
 				return null;
 			}
 
-			if (identifier.Equals(localPlayer?.Identifier)) {
+			if (identifier.Equals(playerAvatar?.GetAvatar())) {
 				Logger.LogDebug("Avatar identifier matches player identifier, no need to load.");
 				if (playerAvatar != null)
 					await playerAvatar.OnAvatarReady();
 				return _attachedRuntimeAvatar;
 			}
 
-			if (identifier.Equals(_attachedRuntimeAvatar?.GetIdentifier())) {
+			if (identifier.Equals(_attachedRuntimeAvatar?.Identifier)) {
 				Logger.LogDebug("Avatar identifier matches current avatar, no need to load.");
 				if (playerAvatar != null)
 					await playerAvatar.OnAvatarReady();
@@ -169,16 +172,15 @@ namespace Nox.Desktop.Runtime {
 			_avatarLoadingCts = new CancellationTokenSource();
 
 			var req = new AssetSearchRequest {
-				Engines = new[] { EngineExtensions.CurrentEngine.GetEngineName() },
+				Engines   = new[] { EngineExtensions.CurrentEngine.GetEngineName() },
 				Platforms = new[] { PlatformExtensions.CurrentPlatform.GetPlatformName() },
-				Versions = new[] { identifier.GetVersion() },
-				Limit = 1
+				Versions  = new[] { identifier.GetVersion() },
+				Limit     = 1
 			};
 
 			var asset = (await Client.AvatarAPI.SearchAssets(identifier, req)
 					.AttachExternalCancellation(_avatarLoadingCts.Token))
-				.GetAssets()
-				.FirstOrDefault();
+				.Items.FirstOrDefault();
 
 			if (_avatarLoadingCts.IsCancellationRequested)
 				return null;
@@ -186,17 +188,17 @@ namespace Nox.Desktop.Runtime {
 			if (asset == null) {
 				Logger.LogWarning($"Avatar asset not found for identifier {identifier.ToString()}");
 				var err = await Client.AvatarAPI.LoadError(_avatarParameters);
-				err.SetIdentifier(identifier);
+				err.Identifier = identifier;
 				await SetAvatar(err);
 				if (playerAvatar != null)
 					await playerAvatar.OnAvatarFailed(new NullReferenceException("Avatar asset not found"));
 				return null;
 			}
 
-			if (!Client.AvatarAPI.HasInCache(asset.GetHash())) {
+			if (!Client.AvatarAPI.HasInCache(asset.Hash)) {
 				var download = Client.AvatarAPI.DownloadToCache(
-					asset.GetUrl(),
-					hash: asset.GetHash(),
+					asset.Url,
+					hash: asset.Hash,
 					progress: p => onProgress?.Invoke($"Downloading avatar {identifier.ToString()}", p),
 					token: _avatarLoadingCts.Token
 				);
@@ -206,7 +208,7 @@ namespace Nox.Desktop.Runtime {
 			}
 
 			var avatar = await Client.AvatarAPI.LoadFromCache(
-				asset.GetHash(),
+				asset.Hash,
 				_avatarParameters,
 				progress: p => onProgress?.Invoke($"Loading avatar {identifier.ToString()}", p),
 				token: _avatarLoadingCts.Token
@@ -217,7 +219,7 @@ namespace Nox.Desktop.Runtime {
 			if (avatar == null) {
 				Logger.LogError($"Failed to load avatar from cache for identifier {identifier.ToString()}");
 				var err = await Client.AvatarAPI.LoadError(_avatarParameters);
-				err.SetIdentifier(identifier);
+				err.Identifier = identifier;
 				await SetAvatar(err);
 				if (playerAvatar != null)
 					await playerAvatar.OnAvatarFailed(new Exception("Failed to load avatar from cache"));
@@ -225,7 +227,7 @@ namespace Nox.Desktop.Runtime {
 			}
 
 			Logger.LogDebug($"Avatar loaded: {identifier.ToString()}");
-			avatar.SetIdentifier(identifier);
+			avatar.Identifier = identifier;
 			await SetAvatar(avatar);
 			if (playerAvatar != null)
 				await playerAvatar.OnAvatarReady();
@@ -276,7 +278,7 @@ namespace Nox.Desktop.Runtime {
 
 			await SetAvatar(avatar);
 
-			LoadAvatarFromUser(Client.UserAPI?.GetCurrent());
+			LoadAvatarFromUser(Client.UserAPI?.Current);
 		}
 
 		[NoxPublic(NoxAccess.Method)]
@@ -295,8 +297,8 @@ namespace Nox.Desktop.Runtime {
 				SetAbilities(ability.Key, ability.Value);
 
 			if (controller is IControllerAvatar ca) {
-				var identifier = ca.GetAvatar()?.GetIdentifier();
-				if (identifier != null && identifier.IsValid())
+				var identifier = ca.GetAvatar().Identifier;
+				if (identifier.IsValid())
 					SetAvatar(identifier).Forget();
 			}
 
@@ -336,7 +338,8 @@ namespace Nox.Desktop.Runtime {
 
 		[NoxPublic(NoxAccess.Method)]
 		public void SetAbilities(string key, object value) {
-			if (!GetAbilities().ContainsKey(key)) return;
+			if (!GetAbilities().ContainsKey(key))
+				return;
 			switch (key) {
 				case "immobilized":
 					player.useMovement = !(bool)value;
@@ -387,8 +390,7 @@ namespace Nox.Desktop.Runtime {
 			=> Parts
 				.ToDictionary(
 					p => p.Key,
-					p =>
-					{
+					p => {
 						var rb = p.Value.GetComponent<Rigidbody>();
 						return new TransformObject(p.Value, rb);
 					}
@@ -435,24 +437,24 @@ namespace Nox.Desktop.Runtime {
 				return false;
 			}
 
-			var root = _attachedRuntimeAvatar.GetDescriptor().GetAnchor();
+			var root = _attachedRuntimeAvatar.Descriptor.GetAnchor();
 			if (!root) {
 				Logger.LogError("Avatar descriptor root is null, cannot set avatar.");
 				_attachedRuntimeAvatar = old;
 				return false;
 			}
 
-			root.name += $" {runtimeAvatar.GetIdentifier()?.ToString() ?? "null"} Desktop";
+			root.name += $" {runtimeAvatar.Identifier.ToString()} Desktop";
 
 			if (old != null)
 				await old.Dispose();
 
-			Logger.LogDebug($"Attaching avatar to {runtimeAvatar.GetDescriptor()}", runtimeAvatar.GetDescriptor().GetAnchor());
+			Logger.LogDebug($"Attaching avatar to {runtimeAvatar.Descriptor}", runtimeAvatar.Descriptor.GetAnchor());
 			root.transform.SetParent(transform, false);
 			root.transform.localPosition = Vector3.zero;
 			root.transform.localRotation = Quaternion.identity;
 
-			var parameterModule = _attachedRuntimeAvatar?.GetDescriptor()
+			var parameterModule = _attachedRuntimeAvatar?.Descriptor
 				?.GetModules<IParameterModule>()
 				.FirstOrDefault();
 
@@ -462,7 +464,7 @@ namespace Nox.Desktop.Runtime {
 			}
 
 			// Attendre que l'Animator soit prêt avant de configurer les paramètres
-			var animator = _attachedRuntimeAvatar?.GetDescriptor()?.GetAnimator();
+			var animator = _attachedRuntimeAvatar?.Descriptor?.GetAnimator();
 			if (animator && !animator.runtimeAnimatorController) {
 				Logger.LogDebug("Waiting for Animator to be ready...");
 				await UniTask.WaitUntil(() => animator.runtimeAnimatorController);
@@ -511,11 +513,12 @@ namespace Nox.Desktop.Runtime {
 
 			// Gérer le zoom avec la molette de la souris
 			var scrollInput = Input.GetAxis("Mouse ScrollWheel");
-			if (!(Mathf.Abs(scrollInput) > 0.01f)) return;
+			if (!(Mathf.Abs(scrollInput) > 0.01f))
+				return;
 
 			// Calculer le nouveau zoom
 			_currentZoom -= scrollInput * zoomSpeed * 10f;
-			_currentZoom = Mathf.Clamp(_currentZoom, minZoom, maxZoom);
+			_currentZoom =  Mathf.Clamp(_currentZoom, minZoom, maxZoom);
 
 			// Appliquer le zoom à la caméra
 			if (player?.headCamera)
@@ -528,7 +531,7 @@ namespace Nox.Desktop.Runtime {
 
 		// ReSharper disable Unity.PerformanceAnalysis
 		private void SynchronizeParametersAvatar() {
-			var parameterModule = _attachedRuntimeAvatar?.GetDescriptor()
+			var parameterModule = _attachedRuntimeAvatar?.Descriptor
 				?.GetModules<IParameterModule>()
 				.FirstOrDefault();
 
@@ -541,55 +544,62 @@ namespace Nox.Desktop.Runtime {
 				switch (n) {
 					case "Grounded": {
 						var grounded = player.IsGrounded();
-						var value = param.Get().ToBool();
-						if (value == grounded) continue;
+						var value    = param.Get().ToBool();
+						if (value == grounded)
+							continue;
 						param.Set(grounded);
 						break;
 					}
 					case "VelocityX": {
 						var worldVelocity = player.body?.linearVelocity ?? Vector3.zero;
 						var localVelocity = transform.InverseTransformDirection(worldVelocity);
-						var value = param.Get().ToFloat();
-						if (Mathf.Approximately(value, localVelocity.x)) continue;
+						var value         = param.Get().ToFloat();
+						if (Mathf.Approximately(value, localVelocity.x))
+							continue;
 						param.Set(localVelocity.x);
 						break;
 					}
 					case "VelocityY": {
 						var worldVelocity = player.body?.linearVelocity ?? Vector3.zero;
 						var localVelocity = transform.InverseTransformDirection(worldVelocity);
-						var value = param.Get().ToFloat();
-						if (Mathf.Approximately(value, localVelocity.y)) continue;
+						var value         = param.Get().ToFloat();
+						if (Mathf.Approximately(value, localVelocity.y))
+							continue;
 						param.Set(localVelocity.y);
 						break;
 					}
 					case "VelocityZ": {
 						var worldVelocity = player.body?.linearVelocity ?? Vector3.zero;
 						var localVelocity = transform.InverseTransformDirection(worldVelocity);
-						var value = param.Get().ToFloat();
-						if (Mathf.Approximately(value, localVelocity.z)) continue;
+						var value         = param.Get().ToFloat();
+						if (Mathf.Approximately(value, localVelocity.z))
+							continue;
 						param.Set(localVelocity.z);
 						break;
 					}
 					case "Velocity": {
 						var worldVelocity = player.body?.linearVelocity ?? Vector3.zero;
 						var localVelocity = transform.InverseTransformDirection(worldVelocity);
-						var value = param.Get().ToVector3();
-						if (value == localVelocity) continue;
+						var value         = param.Get().ToVector3();
+						if (value == localVelocity)
+							continue;
 						param.Set(localVelocity);
 						break;
 					}
 					case "VelocityMagnitude": {
 						var worldVelocity = player.body?.linearVelocity ?? Vector3.zero;
-						var magnitude = worldVelocity.magnitude;
-						var value = param.Get().ToFloat();
-						if (Mathf.Approximately(value, magnitude)) continue;
+						var magnitude     = worldVelocity.magnitude;
+						var value         = param.Get().ToFloat();
+						if (Mathf.Approximately(value, magnitude))
+							continue;
 						param.Set(magnitude);
 						break;
 					}
 					case "tracking/head/rotation": {
-						var cRot = player.headCamera.transform.rotation;
+						var cRot  = player.headCamera.transform.rotation;
 						var value = param.Get().ToQuaternion();
-						if (Quaternion.Angle(value, cRot) < 0.001f) continue;
+						if (Quaternion.Angle(value, cRot) < 0.001f)
+							continue;
 						param.Set(cRot);
 						break;
 					}
@@ -598,7 +608,7 @@ namespace Nox.Desktop.Runtime {
 		}
 
 		private void UpdateCamera() {
-			var cameraModule = _attachedRuntimeAvatar?.GetDescriptor()
+			var cameraModule = _attachedRuntimeAvatar?.Descriptor
 				?.GetModules<ICameraModule>()
 				.FirstOrDefault();
 
