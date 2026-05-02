@@ -171,10 +171,17 @@ namespace Nox.Desktop.Runtime {
 			_avatarLoadingCts?.Cancel();
 			_avatarLoadingCts = new CancellationTokenSource();
 
+			var version = identifier.GetVersion();
+			if (version == ushort.MaxValue) {
+				var avatarData = await Client.AvatarAPI.Fetch(identifier);
+				if (avatarData != null && avatarData.Release != ushort.MaxValue)
+					version = avatarData.Release;
+			}
+
 			var req = new AssetSearchRequest {
 				Engines   = new[] { EngineExtensions.CurrentEngine.GetEngineName() },
 				Platforms = new[] { PlatformExtensions.CurrentPlatform.GetPlatformName() },
-				Versions  = new[] { identifier.GetVersion() },
+				Versions  = new[] { version },
 				Limit     = 1
 			};
 
@@ -215,6 +222,28 @@ namespace Nox.Desktop.Runtime {
 			);
 			if (_avatarLoadingCts.IsCancellationRequested)
 				return null;
+
+			if (avatar == null && Client.AvatarAPI.HasInCache(asset.Hash)) {
+				Logger.LogWarning($"Corrupt cache entry for avatar {identifier.ToString()}, re-downloading...");
+				Client.AvatarAPI.RemoveFromCache(asset.Hash);
+				var reDownload = Client.AvatarAPI.DownloadToCache(
+					asset.Url,
+					hash: asset.Hash,
+					progress: p => onProgress?.Invoke($"Re-downloading avatar {identifier.ToString()}", p),
+					token: _avatarLoadingCts.Token
+				);
+				await reDownload.Start();
+				if (_avatarLoadingCts.IsCancellationRequested)
+					return null;
+				avatar = await Client.AvatarAPI.LoadFromCache(
+					asset.Hash,
+					_avatarParameters,
+					progress: p => onProgress?.Invoke($"Loading avatar {identifier.ToString()}", p),
+					token: _avatarLoadingCts.Token
+				);
+				if (_avatarLoadingCts.IsCancellationRequested)
+					return null;
+			}
 
 			if (avatar == null) {
 				Logger.LogError($"Failed to load avatar from cache for identifier {identifier.ToString()}");
