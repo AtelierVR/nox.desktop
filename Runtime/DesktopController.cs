@@ -20,6 +20,7 @@ using Transform = UnityEngine.Transform;
 using Nox.Controllers;
 using Nox.Users;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 
 namespace Nox.Desktop.Runtime {
 	public class DesktopController : MonoBehaviour, IController, IControllerAvatar, INoxObject {
@@ -466,7 +467,7 @@ namespace Nox.Desktop.Runtime {
 				return false;
 			}
 
-			var root = _attachedRuntimeAvatar.Descriptor.GetAnchor();
+			var root = _attachedRuntimeAvatar.Descriptor.Anchor;
 			if (!root) {
 				Logger.LogError("Avatar descriptor root is null, cannot set avatar.");
 				_attachedRuntimeAvatar = old;
@@ -478,7 +479,7 @@ namespace Nox.Desktop.Runtime {
 			if (old != null)
 				await old.Dispose();
 
-			Logger.LogDebug($"Attaching avatar to {runtimeAvatar.Descriptor}", runtimeAvatar.Descriptor.GetAnchor());
+			Logger.LogDebug($"Attaching avatar to {runtimeAvatar.Descriptor}", runtimeAvatar.Descriptor.Anchor);
 			root.transform.SetParent(transform, false);
 			root.transform.localPosition = Vector3.zero;
 			root.transform.localRotation = Quaternion.identity;
@@ -493,7 +494,7 @@ namespace Nox.Desktop.Runtime {
 			}
 
 			// Attendre que l'Animator soit prêt avant de configurer les paramètres
-			var animator = _attachedRuntimeAvatar?.Descriptor?.GetAnimator();
+			var animator = _attachedRuntimeAvatar?.Descriptor?.Animator;
 			if (animator && !animator.runtimeAnimatorController) {
 				Logger.LogDebug("Waiting for Animator to be ready...");
 				await UniTask.WaitUntil(() => animator.runtimeAnimatorController);
@@ -541,7 +542,7 @@ namespace Nox.Desktop.Runtime {
 				return;
 
 			// Gérer le zoom avec la molette de la souris
-			var scrollInput = Input.GetAxis("Mouse ScrollWheel");
+			var scrollInput = Mouse.current?.scroll.ReadValue().y / 120f ?? 0f;
 			if (!(Mathf.Abs(scrollInput) > 0.01f))
 				return;
 
