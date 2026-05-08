@@ -10,55 +10,55 @@ namespace Nox.Desktop.Runtime {
 		[Header("Desktop Player")]
 		public Camera headCamera;
 
-		public Transform       forwardFollow;
+		public Transform forwardFollow;
 		public CapsuleCollider bodyCollider;
 
 		[Header("Movement")]
 		public bool useMovement = true;
 
-		public float maxMoveSpeed     = 2.3f;
+		public float maxMoveSpeed = 2.3f;
 		public float moveAcceleration = 100000f;
-		public float jumpForce        = 5f;
+		public float jumpForce = 5f;
 		public float sprintMultiplier = 1.5f;
-		public float airControl       = 0.3f;
+		public float airControl = 0.3f;
 		public float movementDeadzone = 0.2f;
 
 		[Header("Height")]
 		public float heightOffset = 0f;
 
-		public bool    crouching                = false;
-		public float   crouchHeight             = 0.6f;
-		public float   heightSmoothSpeed        = 10f;
-		public bool    autoAdjustColliderHeight = true;
-		public Vector2 minMaxHeight             = new Vector2(0.5f, 2.5f);
+		public bool crouching = false;
+		public float crouchHeight = 0.6f;
+		public float heightSmoothSpeed = 10f;
+		public bool autoAdjustColliderHeight = true;
+		public Vector2 minMaxHeight = new Vector2(0.5f, 2.5f);
 
 		[Header("Grounding")]
 		public bool useGrounding = true;
 
-		public float     maxStepHeight              = 0.3f;
-		public float     groundingPenetrationOffset = 0.1f;
-		public float     maxStepAngle               = 45f;
-		public LayerMask groundLayerMask            = -1;
-		public float     groundedDrag               = 10000f;
-		public float     flyingDrag                 = 4f;
+		public float maxStepHeight = 0.3f;
+		public float groundingPenetrationOffset = 0.1f;
+		public float maxStepAngle = 45f;
+		public LayerMask groundLayerMask = -1;
+		public float groundedDrag = 10000f;
+		public float flyingDrag = 4f;
 
 		[Header("Flying")]
 		public bool mayFly = false;
 
-		public  float      flySpeed         = 5f;
-		public  float      flyAcceleration  = 20f;
-		public  float      verticalFlySpeed = 3f; // Private fields
-		public  Rigidbody  body;
-		private Vector3    moveDirection;
-		private Vector3    flyDirection;
-		private float      turningAxis;
-		private bool       isGrounded  = false;
-		private bool       isFlying    = false;
-		private bool       isSprinting = false;
-		private bool       lastCrouching;
+		public float flySpeed = 5f;
+		public float flyAcceleration = 20f;
+		public float verticalFlySpeed = 3f; // Private fields
+		public Rigidbody body;
+		private Vector3 moveDirection;
+		private Vector3 flyDirection;
+		private float turningAxis;
+		private bool isGrounded = false;
+		private bool isFlying = false;
+		private bool isSprinting = false;
+		private bool lastCrouching;
 		private RaycastHit lastGroundHit;
-		private bool       tempDisableGrounding  = false;
-		private bool       isGroundedWhileFlying = false;
+		private bool tempDisableGrounding = false;
+		private bool isGroundedWhileFlying = false;
 		private RaycastHit lastFlyingGroundHit;
 
 		public virtual void Awake() {
@@ -82,7 +82,8 @@ namespace Nox.Desktop.Runtime {
 
 		/// <summary>Sets move direction for this fixedupdate</summary>
 		public virtual void Move(Vector2 axis, bool useDeadzone = true, bool useRelativeDirection = true) {
-			if (!useMovement) return;
+			if (!useMovement)
+				return;
 
 			// Apply deadzone
 			if (useDeadzone && axis.magnitude < movementDeadzone) {
@@ -109,32 +110,36 @@ namespace Nox.Desktop.Runtime {
 
 		/// <summary>Sets turning axis for smooth turning</summary>
 		public virtual void Turn(float axis) {
-			if (!useMovement) return;
+			if (!useMovement)
+				return;
 			turningAxis = axis;
 		}
 
 		public virtual void Jump() {
-			if (!isGrounded) return;
+			if (!isGrounded)
+				return;
 			DisableGrounding(0.1f);
 			body.useGravity = true;
 			body.AddForce(Vector3.up * jumpForce, ForceMode.VelocityChange);
 		}
 
 		public virtual void ToggleFlying() {
-			if (!mayFly) return;
+			if (!mayFly)
+				return;
 			isFlying = !isFlying;
 			// When flying, disable grounding and gravity
 			// When not flying, enable grounding and let Ground() manage gravity
-			if (isFlying) 
+			if (isFlying)
 				body.useGravity = false;
-			
+
 			// Gravity will be managed by Ground() method
-			flyDirection    = Vector3.zero;
+			flyDirection = Vector3.zero;
 		}
 
 		/// <summary>Sets fly direction including vertical movement</summary>
 		public virtual void Fly(Vector3 direction) {
-			if (!isFlying || !mayFly) return;
+			if (!isFlying || !mayFly)
+				return;
 			flyDirection = direction;
 		}
 
@@ -143,7 +148,8 @@ namespace Nox.Desktop.Runtime {
 		}
 
 		protected virtual void FixedUpdate() {
-			if (!useMovement) return;
+			if (!useMovement)
+				return;
 			UpdateRigidbody();
 			Ground();
 			CheckGroundWhileFlying(); // Always check ground even when flying
@@ -199,7 +205,7 @@ namespace Nox.Desktop.Runtime {
 
 			// Apply drag
 			UpdateDrag();
-			
+
 			// Handle turning
 			if (Mathf.Abs(turningAxis) > 0.001f) {
 				transform.Rotate(0, turningAxis * 90f * Time.fixedDeltaTime, 0);
@@ -218,7 +224,7 @@ namespace Nox.Desktop.Runtime {
 			// No extra drag when moving on ground to maintain smooth movement
 		}
 
-		RaycastHit[] hitsNonAlloc = new RaycastHit[128];
+		RaycastHit[] hitsNonAlloc = new RaycastHit[ 128 ];
 
 		protected virtual void Ground() {
 			isGrounded    = false;
@@ -229,8 +235,8 @@ namespace Nox.Desktop.Runtime {
 				float scale        = transform.lossyScale.x > transform.lossyScale.z ? transform.lossyScale.x : transform.lossyScale.z;
 
 				// Calculate points
-				var point1 = scale * bodyCollider.center + transform.position + scale * bodyCollider.height / 2f * -Vector3.up + (maxStepHeight + scale * bodyCollider.radius * 2)         * Vector3.up;
-				var point2 = scale * bodyCollider.center + transform.position + (scale * bodyCollider.height                                            / 2f + groundingPenetrationOffset) * -Vector3.up;
+				var point1 = scale * bodyCollider.center + transform.position + scale * bodyCollider.height / 2f * -Vector3.up + (maxStepHeight + scale * bodyCollider.radius * 2) * Vector3.up;
+				var point2 = scale * bodyCollider.center + transform.position + (scale * bodyCollider.height / 2f + groundingPenetrationOffset) * -Vector3.up;
 
 				// First pass with larger radius
 				var radius   = scale * bodyCollider.radius * 2 + Physics.defaultContactOffset * 2;
@@ -287,8 +293,8 @@ namespace Nox.Desktop.Runtime {
 				float scale        = transform.lossyScale.x > transform.lossyScale.z ? transform.lossyScale.x : transform.lossyScale.z;
 
 				// Calculate points
-				var point1 = scale * bodyCollider.center + transform.position + scale * bodyCollider.height / 2f * -Vector3.up + (maxStepHeight + scale * bodyCollider.radius * 2)         * Vector3.up;
-				var point2 = scale * bodyCollider.center + transform.position + (scale * bodyCollider.height                                            / 2f + groundingPenetrationOffset) * -Vector3.up;
+				var point1 = scale * bodyCollider.center + transform.position + scale * bodyCollider.height / 2f * -Vector3.up + (maxStepHeight + scale * bodyCollider.radius * 2) * Vector3.up;
+				var point2 = scale * bodyCollider.center + transform.position + (scale * bodyCollider.height / 2f + groundingPenetrationOffset) * -Vector3.up;
 
 				// Use a smaller radius for flying ground detection
 				var radius   = scale * bodyCollider.radius;
@@ -374,17 +380,17 @@ namespace Nox.Desktop.Runtime {
 		public void SetPosition(Vector3 position, float disableGroundingDuration = 0.1f) {
 			// Désactiver temporairement le grounding pour éviter qu'il corrige la position
 			DisableGrounding(disableGroundingDuration);
-			
+
 			// Appliquer la nouvelle position au Transform et au Rigidbody
 			transform.position = position;
-			body.position = position;
-			
+			body.position      = position;
+
 			// Réinitialiser la vitesse verticale pour éviter des comportements étranges
 			if (body.useGravity && !isFlying) {
 				body.linearVelocity = new Vector3(body.linearVelocity.x, 0, body.linearVelocity.z);
 			}
 		}
-		
+
 		public void DisableGrounding(float seconds) {
 			if (_disableGroundingRoutine != null)
 				StopCoroutine(_disableGroundingRoutine);
@@ -399,5 +405,8 @@ namespace Nox.Desktop.Runtime {
 			yield return new WaitForSeconds(seconds);
 			tempDisableGrounding = false;
 		}
+
+		public float Height
+			=> bodyCollider.height * transform.lossyScale.y;
 	}
 }

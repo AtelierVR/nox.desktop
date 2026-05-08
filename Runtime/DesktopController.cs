@@ -11,6 +11,7 @@ using Nox.Avatars.Parameters;
 using Nox.Avatars.Players;
 using Nox.Avatars.Runtime.Network;
 using Nox.CCK.Avatars;
+using Nox.Avatars.Scale;
 using Nox.CCK.Mods.Events;
 using Nox.CCK.Network;
 using Nox.CCK.Players;
@@ -364,7 +365,8 @@ namespace Nox.Desktop.Runtime {
 				{ "jump_force", player.jumpForce },
 				{ "fly_speed", player.flySpeed },
 				{ "sprint_multiplier", player.sprintMultiplier },
-				{ "air_control", player.airControl }
+				{ "air_control", player.airControl },
+				{ "height", player.Height }
 			};
 
 		[NoxPublic(NoxAccess.Method)]
@@ -484,6 +486,10 @@ namespace Nox.Desktop.Runtime {
 			root.transform.SetParent(transform, false);
 			root.transform.localPosition = Vector3.zero;
 			root.transform.localRotation = Quaternion.identity;
+
+			// Adapt collider max height to the avatar's eye height.
+			var scaleModule = _attachedRuntimeAvatar.Descriptor.GetModules<IScaleAvatarModule>().FirstOrDefault();
+			player.minMaxHeight = new Vector2(player.minMaxHeight.x, scaleModule?.Height ?? 1.7f);
 
 			var parameterModule = _attachedRuntimeAvatar?.Descriptor
 				?.GetModules<IParameterModule>()
@@ -636,6 +642,20 @@ namespace Nox.Desktop.Runtime {
 					}
 				}
 			}
+
+			// Update max height: Height param > EyeHeight param > camera world Y > 1.7f
+			var heightP = parameterModule.GetParameter("Height")
+				?? parameterModule.GetParameter("EyeHeight");
+			float maxHeight;
+			if (heightP != null)
+				maxHeight = heightP.Get().ToFloat();
+			else if (player.headCamera)
+				maxHeight = player.headCamera.transform.position.y - transform.position.y;
+			else
+				maxHeight = 1.7f;
+
+			if (!Mathf.Approximately(player.minMaxHeight.y, maxHeight))
+				player.minMaxHeight = new Vector2(player.minMaxHeight.x, maxHeight);
 		}
 
 		private void UpdateCamera() {
