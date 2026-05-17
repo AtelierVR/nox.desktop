@@ -632,6 +632,14 @@ namespace Nox.Desktop.Runtime {
 						param.Set(magnitude);
 						break;
 					}
+					case "tracking/head/position": {
+						var cPos  = player.headCamera.transform.position;
+						var value = param.Get().ToVector3();
+						if (Vector3.Distance(value, cPos) < 0.001f)
+							continue;
+						param.Set(cPos);
+						break;
+					}
 					case "tracking/head/rotation": {
 						var cRot  = player.headCamera.transform.rotation;
 						var value = param.Get().ToQuaternion();
