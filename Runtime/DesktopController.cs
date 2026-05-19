@@ -113,10 +113,13 @@ namespace Nox.Desktop.Runtime {
 				return false;
 			}
 
-			if (desktop.avatarLoader.GetAvatar() == null)
-				desktop.SetupAvatar().Forget();
-
-			desktop.avatarLoader.StartUserTracking();
+			if (desktop.avatarLoader == null) {
+				Logger.LogError("Desktop avatar loader is not configured in the prefab");
+			} else {
+				if (desktop.avatarLoader.GetAvatar() == null)
+					desktop.SetupAvatar().Forget();
+				desktop.avatarLoader.StartUserTracking();
+			}
 
 			desktop.gameObject.name = $"[{desktop.GetType().Name}_{desktop.GetEntityId().GetHashCode()}]";
 			DontDestroyOnLoad(desktop);
