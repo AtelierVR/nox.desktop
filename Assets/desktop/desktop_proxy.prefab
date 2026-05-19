@@ -38,6 +38,7 @@ Transform:
   - {fileID: 7237578628519305151}
   - {fileID: 5964627740203700105}
   - {fileID: 2467174318781208052}
+  - {fileID: 6361267197574772672}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!54 &4068083019847770057
@@ -148,6 +149,8 @@ MonoBehaviour:
   minZoom: 2
   maxZoom: 60
   Menu: {fileID: 1062968536045930513}
+  avatarLoader: {fileID: 1361589489010566861}
+  avatarSync: {fileID: 8671248506943371694}
   player: {fileID: 5595254506500728190}
   eventSystem: {fileID: 6513091810161855493}
 --- !u!114 &592085171815288062
@@ -187,6 +190,66 @@ MonoBehaviour:
   image: {fileID: 4044229563715701609}
   hoverSprite: {fileID: 21300000, guid: 65c824b7f333b2043af003b914cbf37c, type: 3}
   normalSprite: {fileID: 21300000, guid: e7af19ce4ce9d3246b7ec809744b870b, type: 3}
+--- !u!1 &2054703255398554326
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6361267197574772672}
+  - component: {fileID: 1361589489010566861}
+  - component: {fileID: 8671248506943371694}
+  m_Layer: 10
+  m_Name: avatar
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6361267197574772672
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2054703255398554326}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3900654132845747597}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1361589489010566861
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2054703255398554326}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 90be072f8ea09c64497944a10e23662a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Nox.Desktop.Runtime::Nox.Desktop.Connectors.AvatarLoaderConnector
+  player: {fileID: 5595254506500728190}
+--- !u!114 &8671248506943371694
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2054703255398554326}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28b969f776a7e3146bb9e32db305624b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Nox.Desktop.Runtime::Nox.Desktop.Connectors.AvatarSyncConnector
+  player: {fileID: 5595254506500728190}
+  avatarLoader: {fileID: 1361589489010566861}
 --- !u!1 &5652280607058186491
 GameObject:
   m_ObjectHideFlags: 0
@@ -572,15 +635,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4176749210758014426, guid: c6e954dcb82fcbf43833dd84cbe39430, type: 3}
       propertyPath: m_LocalScale.x
-      value: 0.30625
+      value: 0.49375
       objectReference: {fileID: 0}
     - target: {fileID: 4176749210758014426, guid: c6e954dcb82fcbf43833dd84cbe39430, type: 3}
       propertyPath: m_LocalScale.y
-      value: 0.30625
+      value: 0.49375
       objectReference: {fileID: 0}
     - target: {fileID: 4176749210758014426, guid: c6e954dcb82fcbf43833dd84cbe39430, type: 3}
       propertyPath: m_LocalScale.z
-      value: 0.30625
+      value: 0.49375
       objectReference: {fileID: 0}
     - target: {fileID: 5479599693753372345, guid: c6e954dcb82fcbf43833dd84cbe39430, type: 3}
       propertyPath: m_AnchorMax.x
