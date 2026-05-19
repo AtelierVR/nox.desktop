@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 
-namespace Nox.Desktop.Runtime {
+namespace Nox.Desktop.Connectors {
 	public class DesktopCrosshair : MonoBehaviour {
 		public Image         image;
 

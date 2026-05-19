@@ -1,12 +1,11 @@
-using System.Collections;
-using System.Collections.Generic;
+using Nox.Desktop.Runtime;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using Logger = Nox.CCK.Utils.Logger;
 
-namespace Nox.Desktop.Runtime {
+namespace Nox.Desktop.Connectors {
 	public class DesktopPlayerControllerLink : MonoBehaviour {
 		[Header("Player Reference")]
 		public DesktopPlayer player;

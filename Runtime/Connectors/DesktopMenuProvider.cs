@@ -1,9 +1,12 @@
 using System;
 using Cysharp.Threading.Tasks;
+using Nox.Desktop.Connectors;
+using Nox.Desktop.Runtime;
 using Nox.UI;
 using UnityEngine;
 using Logger = Nox.CCK.Utils.Logger;
-namespace Nox.Desktop.Runtime {
+
+namespace Nox.Desktop.Connectors {
 	public class DesktopMenuProvider : MonoBehaviour, IMenuProvider, IDisposable {
 		public RectTransform Container;
 		public IMenu Menu;
