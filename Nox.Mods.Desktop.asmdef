@@ -5,7 +5,7 @@
         "UniTask",
         "Nox.CCK",
         "Nox.Controllers",
-        "Nox.KeyBindings",
+        "Nox.KeyBinding",
         "Unity.InputSystem",
         "Nox.UI",
         "Nox.Players",

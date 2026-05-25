@@ -7,7 +7,7 @@
   ],
   "name": "Desktop",
   "version": "1.0.0",
-  "description": "Desktop controller for Nox.",
+  "description": "Desktop input mode: keyboard, mouse, and display management.",
   "license": "GPL-3.0",
   "icon": null,
   "contact": {

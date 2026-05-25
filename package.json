@@ -1,5 +1,6 @@
 {
   "name": "nox.desktop",
   "displayName": "Nox - Desktop",
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "description": "Desktop input mode: keyboard, mouse, and display management."
 }
