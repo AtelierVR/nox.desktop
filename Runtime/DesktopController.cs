@@ -129,6 +129,9 @@ namespace Nox.Desktop.Runtime {
 		public UniTask<IRuntimeAvatar> SetAvatar(Identifier identifier, Action<string, float> onProgress = null)
 			=> avatarLoader != null ? avatarLoader.SetAvatar(identifier, onProgress) : UniTask.FromResult<IRuntimeAvatar>(null);
 
+		public UniTask<IRuntimeAvatar> ReloadAvatar(Action<string, float> onProgress = null)
+			=> avatarLoader != null ? avatarLoader.ReloadAvatar(onProgress) : UniTask.FromResult<IRuntimeAvatar>(null);
+
 		[NoxPublic(NoxAccess.Method)]
 		public string GetId()
 			=> DefaultId;

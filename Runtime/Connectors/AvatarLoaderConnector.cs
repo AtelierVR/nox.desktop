@@ -165,7 +165,7 @@ namespace Nox.Desktop.Connectors {
 			return true;
 		}
 
-		public async UniTask<IRuntimeAvatar> SetAvatar(Identifier identifier, Action<string, float> onProgress = null) {
+		public async UniTask<IRuntimeAvatar> SetAvatar(Identifier identifier, Action<string, float> onProgress = null, bool forceReload = false) {
 			Logger.LogDebug($"Loading avatar for identifier {identifier.ToString() ?? "null"}");
 
 			if (!this || !gameObject)
@@ -182,14 +182,14 @@ namespace Nox.Desktop.Connectors {
 				return null;
 			}
 
-			if (identifier.Equals(playerAvatar?.GetAvatar())) {
+			if (!forceReload && identifier.Equals(playerAvatar?.GetAvatar())) {
 				Logger.LogDebug("Avatar identifier matches player identifier, no need to load.");
 				if (playerAvatar != null)
 					await playerAvatar.OnAvatarReady();
 				return _runtimeAvatar;
 			}
 
-			if (identifier.Equals(_avatarIdentifier)) {
+			if (!forceReload && identifier.Equals(_avatarIdentifier)) {
 				Logger.LogDebug("Avatar identifier matches current avatar, no need to load.");
 				if (playerAvatar != null)
 					await playerAvatar.OnAvatarReady();
@@ -290,6 +290,16 @@ namespace Nox.Desktop.Connectors {
 			if (playerAvatar != null)
 				await playerAvatar.OnAvatarReady();
 			return avatar;
+		}
+
+		public async UniTask<IRuntimeAvatar> ReloadAvatar(Action<string, float> onProgress = null) {
+			var identifier = _runtimeAvatar?.Identifier ?? _avatarIdentifier;
+			if (!identifier.IsValid()) {
+				Logger.LogWarning("Cannot reload avatar: current avatar identifier is invalid.");
+				return null;
+			}
+
+			return await SetAvatar(identifier, onProgress, true);
 		}
 	}
 }
