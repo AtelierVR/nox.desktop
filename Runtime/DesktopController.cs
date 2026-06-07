@@ -14,6 +14,8 @@ using Nox.CCK.Players;
 using Nox.CCK.Utils;
 using Nox.Controllers;
 using Nox.Desktop.Connectors;
+using Nox.Microphone.Players;
+using Nox.Sessions;
 using Nox.Users;
 using UnityEngine;
 using Logger = Nox.CCK.Utils.Logger;
@@ -43,6 +45,9 @@ namespace Nox.Desktop.Runtime {
 		public DesktopMenuProvider Menu;
 		public AvatarLoaderConnector avatarLoader;
 		public AvatarSyncConnector avatarSync;
+		[SerializeField] public MicrophoneConnector microphone;
+
+		private ISessionAPI _sessionApi;
 
 		/// <summary>
 		/// Get the proxy mod API.
@@ -51,6 +56,11 @@ namespace Nox.Desktop.Runtime {
 			=> Client.CoreAPI.ModAPI
 				.GetMod("controller")
 				.GetInstance<IControllerAPI>();
+
+		private static ISessionAPI SessionAPI
+			=> Client.CoreAPI.ModAPI
+				.GetMod("session")
+				?.GetInstance<ISessionAPI>();
 
 		/// <summary>
 		/// Check if the current proxy is better than Desktop proxy.
@@ -144,9 +154,26 @@ namespace Nox.Desktop.Runtime {
 		public EventSystem eventSystem;
 
 		public void Dispose() {
+			_sessionApi?.OnCurrentChanged.RemoveListener(OnSessionChanged);
+			microphone?.Unbind();
 			Menu.Dispose();
 			avatarLoader?.Dispose();
 			Destroy(gameObject);
+		}
+
+		private void Awake() {
+			_sessionApi = SessionAPI;
+			if (_sessionApi == null) return;
+			_sessionApi.OnCurrentChanged.AddListener(OnSessionChanged);
+			if (_sessionApi.Current != null && _sessionApi.TryGet(_sessionApi.Current, out var current))
+				OnSessionChanged(null, current);
+		}
+
+		private void OnSessionChanged(ISession old, ISession next) {
+			if (microphone == null) return;
+			microphone.Unbind();
+			if (next?.LocalPlayer is ILocalPlayerVoice voice)
+				microphone.Bind(voice);
 		}
 
 		private async UniTask SetupAvatar() {

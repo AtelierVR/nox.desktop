@@ -151,6 +151,7 @@ MonoBehaviour:
   Menu: {fileID: 1062968536045930513}
   avatarLoader: {fileID: 1361589489010566861}
   avatarSync: {fileID: 8671248506943371694}
+  microphone: {fileID: 5115320003822673325}
   player: {fileID: 5595254506500728190}
   eventSystem: {fileID: 6513091810161855493}
 --- !u!114 &592085171815288062
@@ -201,6 +202,7 @@ GameObject:
   - component: {fileID: 6361267197574772672}
   - component: {fileID: 1361589489010566861}
   - component: {fileID: 8671248506943371694}
+  - component: {fileID: 5115320003822673325}
   m_Layer: 10
   m_Name: avatar
   m_TagString: Untagged
@@ -250,6 +252,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: Nox.Desktop.Runtime::Nox.Desktop.Connectors.AvatarSyncConnector
   player: {fileID: 5595254506500728190}
   avatarLoader: {fileID: 1361589489010566861}
+--- !u!114 &5115320003822673325
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2054703255398554326}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bb0e0daa424e8824cbf61a50b4343509, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Nox.Desktop.Runtime::Nox.Desktop.Connectors.MicrophoneConnector
+  _initialSpeak: 2
 --- !u!1 &5652280607058186491
 GameObject:
   m_ObjectHideFlags: 0
@@ -635,15 +650,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4176749210758014426, guid: c6e954dcb82fcbf43833dd84cbe39430, type: 3}
       propertyPath: m_LocalScale.x
-      value: 0.49375
+      value: 0.5161458
       objectReference: {fileID: 0}
     - target: {fileID: 4176749210758014426, guid: c6e954dcb82fcbf43833dd84cbe39430, type: 3}
       propertyPath: m_LocalScale.y
-      value: 0.49375
+      value: 0.5161458
       objectReference: {fileID: 0}
     - target: {fileID: 4176749210758014426, guid: c6e954dcb82fcbf43833dd84cbe39430, type: 3}
       propertyPath: m_LocalScale.z
-      value: 0.49375
+      value: 0.5161458
       objectReference: {fileID: 0}
     - target: {fileID: 5479599693753372345, guid: c6e954dcb82fcbf43833dd84cbe39430, type: 3}
       propertyPath: m_AnchorMax.x
