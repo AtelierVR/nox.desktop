@@ -23,7 +23,6 @@
       "website": "https://hactazia.fr/"
     }
   ],
-  "contributors": [],
   "relations": [
     {
       "id": "controller",
@@ -79,7 +78,5 @@
     "client": [
       "Nox.Desktop.Runtime.Client"
     ]
-  },
-  "references": [],
-  "permissions": []
+  }
 }
