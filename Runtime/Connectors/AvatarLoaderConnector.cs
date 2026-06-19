@@ -202,8 +202,7 @@ namespace Nox.Desktop.Connectors {
 			var version = identifier.GetVersion();
 			if (version == ushort.MaxValue) {
 				var avatarData = await Client.AvatarAPI.Fetch(identifier);
-				if (avatarData != null && avatarData.Release != ushort.MaxValue)
-					version = avatarData.Release;
+				version = avatarData.Release.Value;
 			}
 
 			var req = new AssetSearchRequest {
