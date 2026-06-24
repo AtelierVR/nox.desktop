@@ -15,7 +15,7 @@ namespace Nox.Desktop.Runtime {
 
 		internal static IControllerAPI ControllerAPI
 			=> CoreAPI.ModAPI
-				.GetMod("controller")
+				.GetMod("controllers")
 				.GetInstance<IControllerAPI>();
 
 		internal static ISessionAPI SessionAPI

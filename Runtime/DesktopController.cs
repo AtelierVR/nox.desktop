@@ -54,7 +54,7 @@ namespace Nox.Desktop.Runtime {
 		/// </summary>
 		private static IControllerAPI ControllerAPI
 			=> Client.CoreAPI.ModAPI
-				.GetMod("controller")
+				.GetMod("controllers")
 				.GetInstance<IControllerAPI>();
 
 		private static ISessionAPI SessionAPI
