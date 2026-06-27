@@ -14,7 +14,7 @@ using Nox.CCK.Players;
 using Nox.CCK.Utils;
 using Nox.Controllers;
 using Nox.Desktop.Connectors;
-using Nox.Microphone.Players;
+using Nox.Audio.Players;
 using Nox.Sessions;
 using Nox.Users;
 using UnityEngine;

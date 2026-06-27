@@ -1,7 +1,9 @@
-using Nox.CCK.Microphone;
+using System;
+using Nox.CCK.Audio;
 using Nox.Desktop.Runtime;
-using Nox.Microphone;
-using Nox.Microphone.Players;
+using Nox.Audio;
+using Nox.Audio.Players;
+using Nox.CCK.Mods.Events;
 using UnityEngine;
 
 namespace Nox.Desktop.Connectors {
@@ -23,66 +25,101 @@ namespace Nox.Desktop.Connectors {
 
 		private static IMicrophoneAPI MicrophoneAPI
 			=> Client.CoreAPI.ModAPI
-				.GetMod("microphone")
+				.GetMod("audio")
 				?.GetInstance<IMicrophoneAPI>();
+		
+		private EventSubscription[] _events = Array.Empty<EventSubscription>();
 
 		// ── Public API ────────────────────────────────────────────────────────
 
 		/// <summary>Bind this connector to a session's local player voice.</summary>
 		public void Bind(ILocalPlayerVoice localVoice) {
 			Unbind();
+
 			_voice = localVoice;
-			StartMic();
-			_voice.Speak = MicrophoneSettings.Mute ? SpeakMode.Muted : _initialSpeak;
-			MicrophoneSettings.OnMuteChanged.AddListener(OnMuteChanged);
-			MicrophoneSettings.OnCurrentMicrophoneChanged.AddListener(OnMicChanged);
+			StartMicrophone();
+
+			_events = new[] {
+				Client.CoreAPI.EventAPI.Subscribe("audio.current_microphone_changed", OnCurrentChanged),
+				Client.CoreAPI.EventAPI.Subscribe("audio.microphone_mute_changed", OnMuteChanged)
+			};
 		}
 
 		/// <summary>Detach from the current local player voice and stop the microphone.</summary>
 		public void Unbind() {
 			if (_voice == null) return;
-			MicrophoneSettings.OnMuteChanged.RemoveListener(OnMuteChanged);
-			MicrophoneSettings.OnCurrentMicrophoneChanged.RemoveListener(OnMicChanged);
+
+			foreach (var ev in _events)
+				Client.CoreAPI.EventAPI.Unsubscribe(ev);
+
 			_voice.Speak = SpeakMode.Muted;
 			_voice.Audio = null;
 			_voice       = null;
-			StopMic();
+
+			StopMicrophone();
 		}
 
 		// ── Microphone lifecycle ──────────────────────────────────────────────
+		
+		private void StartMicrophone() {
+			if (_voice == null)
+				return;
 
-		private void StartMic() {
-			_microphone?.Stop("voice");
-			var micApi = MicrophoneAPI;
-			if (micApi == null) return;
+			StopMicrophone();
 
-			var name = MicrophoneSettings.CurrentMicrophone;
-			_microphone = string.IsNullOrEmpty(name) ? null : micApi.Get(name);
-			_microphone ??= micApi.GetCurrent() ?? micApi.GetDefault();
+			_microphone ??= MicrophoneAPI.Current
+				?? MicrophoneAPI.Default;
 
-			if (_microphone == null || _voice == null) return;
+			if (_microphone == null)
+				return;
+
+			_voice.Speak = MicrophoneAPI.Current.IsMuted
+				? SpeakMode.Muted
+				: _initialSpeak;
+
 			var clip = _microphone.Start("voice");
-			_voice.Audio = clip != null ? new MicrophoneAudio(clip, _microphone) : null;
+			_voice.Audio = clip
+				? new CapturedMicrophone(clip, _microphone)
+				: null;
 		}
 
-		private void StopMic() {
+		private void StopMicrophone() {
 			_microphone?.Stop("voice");
 			_microphone = null;
 		}
 
 		// ── Settings listeners ────────────────────────────────────────────────
 
-		private void OnMuteChanged(bool muted) {
-			if (_voice != null)
-				_voice.Speak = muted ? SpeakMode.Muted : _initialSpeak;
+		private void OnMuteChanged(EventData context) {
+			if (_voice == null)
+				return;
+
+			var microphone = !context.TryGet<IMicrophone>(0, out var mic)
+				? throw new ArgumentException("Argument 0 is not a Microphone")
+				: mic;
+
+			if (microphone != _microphone)
+				return;
+
+			var muted = !context.TryGet<bool>(1, out var mut)
+				? throw new ArgumentException("Argument 1 is not a bool")
+				: mut;
+
+			_voice.Speak = muted
+				? SpeakMode.Muted
+				: _initialSpeak;
 		}
 
-		private void OnMicChanged(string _, string __) {
-			if (_voice != null) StartMic();
+		private void OnCurrentChanged(EventData context) {
+			if (_voice == null)
+				return;
+
+			StartMicrophone();
 		}
 
 		// ── Unity lifecycle ───────────────────────────────────────────────────
 
-		private void OnDestroy() => Unbind();
+		public void OnDestroy()
+			=> Unbind();
 	}
 }

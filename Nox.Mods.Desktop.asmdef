@@ -15,7 +15,7 @@
         "Nox.Avatars.Camera",
         "Nox.Avatars.Scale",
         "Nox.Users",
-        "Nox.Microphone",
+        "Nox.Audio",
         "Nox.CCK.Avatars",
         "Nox.Sessions",
         "Nox.CCK.Worlds",
