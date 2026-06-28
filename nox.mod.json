@@ -58,6 +58,11 @@
       "id": "session",
       "type": "depends",
       "version": ">=1.0.0"
+    },
+    {
+      "id": "audio",
+      "type": "depends",
+      "version": ">=1.0.0"
     }
   ],
   "constraints": [
