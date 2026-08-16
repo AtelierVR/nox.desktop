@@ -20,7 +20,8 @@ namespace Nox.Desktop.Runtime {
 			("nox.movement", "jump", "<Keyboard>/space", value => SetValue("jump", value), 0f),
 			("nox.movement", "crouch", "<Keyboard>/leftShift", value => SetValue("crouch", value), 0f),
 			("nox.movement", "sprint", "<Keyboard>/leftCtrl", value => SetValue("sprint", value), 0f),
-			("nox.ui", "main", "<Keyboard>/tab", value => SetValue("main", value), 0f)
+			("nox.ui", "main", "<Keyboard>/tab", value => SetValue("main", value), 0f),
+			("nox.audio", "mute", "<Keyboard>/v", value => ToggleMute(value), 0f)
 		};
 
 		static readonly internal UnityEvent<string, float, float> KeyEvent = new();
@@ -68,6 +69,16 @@ namespace Nox.Desktop.Runtime {
 			keyTuple.Item5 = value;
 			Keys[index]    = keyTuple;
 			KeyEvent.Invoke(key, value, oldValue);
+		}
+
+		/// <summary>
+		/// Emits a "mute" event when the mute key is pressed.
+		/// The keybinding callback is invoked with 1 on press and 0 on release;
+		/// we only emit when the key is pressed down (value > 0).
+		/// </summary>
+		private static void ToggleMute(float value) {
+			if (value <= 0.5f) return;
+			Client.CoreAPI.EventAPI.Emit("mute");
 		}
 
 		/// <summary>
