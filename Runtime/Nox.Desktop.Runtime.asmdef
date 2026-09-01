@@ -8,6 +8,7 @@
         "Nox.KeyBinding",
         "Unity.InputSystem",
         "Nox.UI",
+        "Nox.CCK.UI",
         "Nox.Players",
         "Nox.Entities",
         "Nox.Avatars",
