@@ -22,8 +22,7 @@
         "Nox.Sessions",
         "Nox.CCK.Worlds",
         "Nox.Worlds",
-        "Nox.Avatars.Runtime",
-        "Nox.Desktop"
+        "Nox.Avatars.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
