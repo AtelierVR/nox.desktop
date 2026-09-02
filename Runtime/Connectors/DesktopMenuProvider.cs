@@ -47,6 +47,7 @@ namespace Nox.Desktop.Connectors {
 		private float _mainDownTime;
 		private bool _longPressFired;
 		private bool _suppressToggle;
+		private bool _radialWasOpen;
 
 		/// <summary>
 		/// Vrai si le radial est présent à l'écran : on vérifie l'état logique ET
@@ -56,6 +57,15 @@ namespace Nox.Desktop.Connectors {
 			=> RadialMenu != null && RadialMenu.Active;
 
 		private void Update() {
+			// Détecte les changements d'état du radial (ex. fermé via son élément
+			// Close, pas par la touche) pour restaurer le mouvement de la tête et
+			// l'état du curseur.
+			var isOpen = IsRadialOpen;
+			if (isOpen != _radialWasOpen) {
+				_radialWasOpen = isOpen;
+				RefreshInputState();
+			}
+
 			if (!_mainDown || _longPressFired)
 				return;
 
