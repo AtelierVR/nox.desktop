@@ -333,6 +333,7 @@ namespace Nox.Desktop.Runtime {
 				part.position = tr.GetPosition();
 				if (hasRb && rb)
 					rb.position = tr.GetPosition();
+				Physics.SyncTransforms();
 			}
 
 			if (tr.Flags.HasFlag(TransformFlags.Rotation) && !tr.IsSameRotation(part.rotation)) {
