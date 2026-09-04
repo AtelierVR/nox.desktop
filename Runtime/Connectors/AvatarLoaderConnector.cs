@@ -63,8 +63,15 @@ namespace Nox.Desktop.Connectors {
 		}
 
 		public void LoadAvatarFromUser(ICurrentUser user) {
-			if (user?.Avatar.IsValid() == true)
-				SetAvatar(user.Avatar).Forget();
+			if (user?.Avatar.IsValid() != true)
+				return;
+
+			// Skip reload if avatar identifier hasn't changed
+			if (user.Avatar.Equals(_avatarIdentifier))
+				return;
+
+			_avatarIdentifier = user.Avatar;
+			SetAvatar(user.Avatar).Forget();
 		}
 
 		public async UniTask<bool> SetAvatar(IRuntimeAvatar runtimeAvatar) {
@@ -102,6 +109,7 @@ namespace Nox.Desktop.Connectors {
 			}
 
 			root.name += $" {runtimeAvatar.Identifier.ToString()} Desktop";
+			_avatarIdentifier = runtimeAvatar.Identifier;
 
 			if (old != null)
 				await old.Dispose();
