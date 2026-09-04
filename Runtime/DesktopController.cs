@@ -327,17 +327,29 @@ namespace Nox.Desktop.Runtime {
 				return;
 
 			Logger.LogDebug($"Set part {index}");
-			if (!tr.IsSamePosition(part.position))
-				part.position = tr.GetPosition();
-			if (!tr.IsSameRotation(part.rotation))
-				part.rotation = tr.GetRotation();
+			var hasRb = part.TryGetComponent<Rigidbody>(out var rb);
 
-			if (!part.TryGetComponent<Rigidbody>(out var rb))
+			if (tr.Flags.HasFlag(TransformFlags.Position) && !tr.IsSamePosition(part.position)) {
+				part.position = tr.GetPosition();
+				if (hasRb && rb)
+					rb.position = tr.GetPosition();
+			}
+
+			if (tr.Flags.HasFlag(TransformFlags.Rotation) && !tr.IsSameRotation(part.rotation)) {
+				part.rotation = tr.GetRotation();
+				if (hasRb && rb)
+					rb.rotation = tr.GetRotation();
+			}
+
+			if (tr.Flags.HasFlag(TransformFlags.Scale) && !tr.IsSameScale(part.localScale))
+				part.localScale = tr.GetScale();
+
+			if (!hasRb || !rb)
 				return;
 
-			if (rb && !tr.IsSameVelocity(rb.linearVelocity))
+			if (tr.Flags.HasFlag(TransformFlags.Velocity) && !tr.IsSameVelocity(rb.linearVelocity))
 				rb.linearVelocity = tr.GetVelocity();
-			if (rb && !tr.IsSameAngular(rb.angularVelocity))
+			if (tr.Flags.HasFlag(TransformFlags.Angular) && !tr.IsSameAngular(rb.angularVelocity))
 				rb.angularVelocity = tr.GetAngular();
 		}
 
