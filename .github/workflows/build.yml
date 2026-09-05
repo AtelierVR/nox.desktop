@@ -7,17 +7,6 @@ on:
     branches: ["**"]
   pull_request:
     branches: ["main"]
-  workflow_dispatch:
-    inputs:
-      version_override:
-        description: "Override version (empty = auto)"
-        required: false
-        type: string
-      no_library_cache:
-        description: "Skip restoring the Library cache"
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: write
