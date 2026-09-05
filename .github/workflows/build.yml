@@ -1,0 +1,50 @@
+name: Build & Release
+
+run-name: "${{ github.event.head_commit.message }} by @${{ github.actor }}"
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      version_override:
+        description: "Override version (empty = auto)"
+        required: false
+        type: string
+      no_library_cache:
+        description: "Skip restoring the Library cache"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    uses: AtelierVR/mod.builder/.github/workflows/prepare.yml@main
+    with:
+      override: ${{ inputs.version_override }}
+
+  check:
+    needs: prepare
+    uses: AtelierVR/mod.builder/.github/workflows/check.yml@main
+
+  build:
+    needs: [ prepare, check ]
+    uses: AtelierVR/mod.builder/.github/workflows/build.yml@main
+    with:
+      mod_id: ${{ needs.prepare.outputs.mod_id }}
+      version: ${{ needs.prepare.outputs.version }}
+      platforms: "windows linux"
+      no_library_cache: ${{ inputs.no_library_cache || false }}
+    secrets:
+      UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+
+  release:
+    needs: [ prepare, build ]
+    uses: AtelierVR/mod.builder/.github/workflows/release.yml@main
