@@ -7,6 +7,17 @@ on:
     branches: ["**"]
   pull_request:
     branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      version_override:
+        description: "Override version (empty = auto)"
+        required: false
+        type: string
+      no_library_cache:
+        description: "Skip restoring the Library cache"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -37,3 +48,8 @@ jobs:
   release:
     needs: [ prepare, build ]
     uses: AtelierVR/mod.builder/.github/workflows/release.yml@main
+    with:
+      mod_id: ${{ needs.prepare.outputs.mod_id }}
+      version: ${{ needs.prepare.outputs.version }}
+      tag: ${{ needs.prepare.outputs.tag }}
+      prerelease: ${{ needs.prepare.outputs.prerelease }}
