@@ -27,42 +27,50 @@
     {
       "id": "controllers",
       "type": "depends",
-      "version": ">=1.0.0"
+      "version": ">=1.0.0",
+      "register": "git+https://github.com/AtelierVR/nox.controllers.git"
     },
     {
       "id": "ui",
       "type": "depends",
-      "version": ">=1.0.0"
+      "version": ">=1.0.0",
+      "register": "git+https://github.com/AtelierVR/nox.ui.git"
     },
     {
-      "id": "avatar",
+      "id": "avatars",
       "type": "depends",
-      "version": ">=1.0.0"
+      "version": ">=1.0.0",
+      "register": "git+https://github.com/AtelierVR/nox.avatars.git"
     },
     {
       "id": "microphone",
       "type": "depends",
-      "version": ">=1.0.0"
+      "version": ">=1.0.0",
+      "register": "git+https://github.com/AtelierVR/nox.microphone.git"
     },
     {
       "id": "users",
       "type": "depends",
-      "version": ">=1.0.0"
+      "version": ">=1.0.0",
+      "register": "git+https://github.com/AtelierVR/nox.users.git"
     },
     {
       "id": "keybinding",
       "type": "depends",
-      "version": ">=1.0.0"
+      "version": ">=1.0.0",
+      "register": "git+https://github.com/AtelierVR/nox.keybinding.git"
     },
     {
       "id": "session",
       "type": "depends",
-      "version": ">=1.0.0"
+      "version": ">=1.0.0",
+      "register": "git+https://github.com/AtelierVR/nox.sessions.git"
     },
     {
       "id": "audio",
       "type": "depends",
-      "version": ">=1.0.0"
+      "version": ">=1.0.0",
+      "register": "git+https://github.com/AtelierVR/nox.audio.git"
     }
   ],
   "constraints": [
@@ -72,7 +80,7 @@
     },
     {
       "type": "after",
-      "id": "avatar"
+      "id": "avatars"
     },
     {
       "type": "after",
