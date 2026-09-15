@@ -191,7 +191,8 @@ namespace Nox.Desktop.Connectors
 				return null;
 			}
 
-			if (!forceReload && _runtime.Arguments.ContainsKey("error") && identifier.Equals(_runtime.Identifier))
+			// _runtime est null tant qu'aucun avatar n'a été chargé (proxy fraîchement créé).
+			if (!forceReload && _runtime != null && _runtime.Arguments.ContainsKey("error") && identifier.Equals(_runtime.Identifier))
 			{
 				Logger.LogDebug("Avatar identifier matches current avatar, no need to load.");
 				if (playerAvatar != null)

@@ -176,9 +176,18 @@ namespace Nox.Desktop.Runtime {
 				microphone.Bind(voice);
 		}
 
+		private bool _settingUpAvatar;
+
 		private async UniTask SetupAvatar() {
 			if (avatarLoader == null || avatarLoader.GetAvatar() != null) {
 				Logger.LogDebug("Avatar already set for DesktopController");
+				return;
+			}
+
+			// SetupAvatar peut être relancé (Make + flux user_update) ; deux passes
+			// concurrentes s'annulent via _context.Cancel() dans le loader.
+			if (_settingUpAvatar) {
+				Logger.LogDebug("Avatar setup already in progress, skipping duplicate request.");
 				return;
 			}
 
@@ -187,22 +196,35 @@ namespace Nox.Desktop.Runtime {
 				return;
 			}
 
-			Logger.LogDebug("Creating avatar");
+			_settingUpAvatar = true;
+			try {
+				Logger.LogDebug("Creating avatar");
 
-			var avatarParameters = new Dictionary<string, object> {
-				["source"]  = this,
-				["desktop"] = true,
-				["local"]   = true
-			};
-			var avatar = await Client.AvatarAPI.LoadLoading(avatarParameters);
-			if (avatar == null) {
-				Logger.LogError("Failed to create avatar for DesktopController");
-				return;
+				var avatarParameters = new Dictionary<string, object> {
+					["source"]  = this,
+					["desktop"] = true,
+					["local"]   = true
+				};
+				var avatar = await Client.AvatarAPI.LoadLoading(avatarParameters);
+				if (avatar == null) {
+					Logger.LogError("Failed to create avatar for DesktopController");
+					return;
+				}
+
+				// Le proxy desktop est détruit dès qu'un contrôleur de priorité supérieure
+				// (XR) prend la main : l'avatar en vol n'a plus de loader pour l'accueillir.
+				if (!this || !gameObject || avatarLoader == null) {
+					Logger.LogDebug("Desktop proxy was destroyed while loading the loading avatar, discarding it.");
+					await avatar.Dispose();
+					return;
+				}
+
+				await avatarLoader.SetAvatar(avatar);
+
+				avatarLoader.LoadAvatarFromUser(Client.UserAPI?.Current);
+			} finally {
+				_settingUpAvatar = false;
 			}
-
-			await avatarLoader.SetAvatar(avatar);
-
-			avatarLoader.LoadAvatarFromUser(Client.UserAPI?.Current);
 		}
 
 		[NoxPublic(NoxAccess.Method)]
@@ -220,10 +242,13 @@ namespace Nox.Desktop.Runtime {
 			foreach (var ability in controller.GetAbilities())
 				SetAbilities(ability.Key, ability.Value);
 
-			if (controller is IControllerAvatar ca) {
-				var identifier = ca.GetAvatar().Identifier;
+			// Un loader fraîchement créé n'a pas encore d'avatar : le charger ici
+			// ferait démarrer un chargement avant SetupAvatar(), qui en lancerait un
+			// second en parallèle (annulations et avatars détruits en cascade).
+			if (controller is IControllerAvatar ca && avatarLoader?.GetAvatar() != null) {
+				var identifier = ca.GetAvatar()?.Identifier ?? Identifier.Invalid;
 				if (identifier.IsValid())
-					avatarLoader?.SetAvatar(identifier).Forget();
+					avatarLoader.SetAvatar(identifier).Forget();
 			}
 
 			return UniTask.CompletedTask;
