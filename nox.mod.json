@@ -37,7 +37,7 @@
       "register": "git+https://github.com/AtelierVR/nox.ui.git"
     },
     {
-      "id": "avatars",
+      "id": "avatar",
       "type": "depends",
       "version": ">=1.0.0",
       "register": "git+https://github.com/AtelierVR/nox.avatars.git"
@@ -80,7 +80,7 @@
     },
     {
       "type": "after",
-      "id": "avatars"
+      "id": "avatar"
     },
     {
       "type": "after",
