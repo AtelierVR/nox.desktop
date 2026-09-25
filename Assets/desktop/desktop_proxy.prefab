@@ -39,6 +39,7 @@ Transform:
   - {fileID: 5964627740203700105}
   - {fileID: 2467174318781208052}
   - {fileID: 6361267197574772672}
+  - {fileID: 2504885599595590631}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!54 &4068083019847770057
@@ -145,6 +146,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 83acdbaa9ece1714ba81a73f2a61f0ee, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  NameplateAnchor: {fileID: 2504885599595590631}
   zoomSpeed: 2
   minZoom: 2
   maxZoom: 60
@@ -226,6 +228,37 @@ RectTransform:
   m_AnchoredPosition: {x: 320, y: 320}
   m_SizeDelta: {x: 500, y: 500}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &1634137429663669694
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2504885599595590631}
+  m_Layer: 9
+  m_Name: nameplate
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2504885599595590631
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1634137429663669694}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3900654132845747597}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2054703255398554326
 GameObject:
   m_ObjectHideFlags: 0
@@ -272,7 +305,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 90be072f8ea09c64497944a10e23662a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Nox.Desktop.Runtime::Nox.Desktop.Connectors.AvatarLoaderConnector
-  player: {fileID: 5595254506500728190}
+  Controller: {fileID: 2431568659011632666}
 --- !u!114 &8671248506943371694
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -326,7 +359,7 @@ RectTransform:
   m_GameObject: {fileID: 3562582117646799287}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.43078712, y: 0.43078712, z: 0.43078712}
+  m_LocalScale: {x: 0.50685185, y: 0.50685185, z: 0.50685185}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 7801173749937964563}
@@ -789,15 +822,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4176749210758014426, guid: c6e954dcb82fcbf43833dd84cbe39430, type: 3}
       propertyPath: m_LocalScale.x
-      value: 0.43078712
+      value: 0.50685185
       objectReference: {fileID: 0}
     - target: {fileID: 4176749210758014426, guid: c6e954dcb82fcbf43833dd84cbe39430, type: 3}
       propertyPath: m_LocalScale.y
-      value: 0.43078712
+      value: 0.50685185
       objectReference: {fileID: 0}
     - target: {fileID: 4176749210758014426, guid: c6e954dcb82fcbf43833dd84cbe39430, type: 3}
       propertyPath: m_LocalScale.z
-      value: 0.43078712
+      value: 0.50685185
       objectReference: {fileID: 0}
     - target: {fileID: 5479599693753372345, guid: c6e954dcb82fcbf43833dd84cbe39430, type: 3}
       propertyPath: m_AnchorMax.x
@@ -871,11 +904,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: api.nox.desktop::api.nox.desktop.DesktopMenuProvider
   Container: {fileID: 6777837100936130096}
+  ContainerParent: {fileID: 7731422090172783712}
   RadialContainer: {fileID: 7801173749937964563}
+  RadialContainerParent: {fileID: 7816545205107112706}
   ControllerLink: {fileID: 592085171815288062}
   LongPressDuration: 0.4
-  ContainerParent: {fileID: 7731422090172783712}
-  RadialContainerParent: {fileID: 7816545205107112706}
 --- !u!224 &6777837100936130096 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 4176749210758014426, guid: c6e954dcb82fcbf43833dd84cbe39430, type: 3}

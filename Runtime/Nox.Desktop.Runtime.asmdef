@@ -11,6 +11,8 @@
         "Nox.CCK.UI",
         "Nox.Players",
         "Nox.Entities",
+        "Nox.Nameplate",
+        "Nox.CCK.Nameplate",
         "Nox.Avatars",
         "Nox.Avatars.Parameters",
         "Nox.Avatars.Camera",

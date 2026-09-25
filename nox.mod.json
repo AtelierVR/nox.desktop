@@ -71,6 +71,12 @@
       "type": "depends",
       "version": ">=1.0.0",
       "register": "git+https://github.com/AtelierVR/nox.audio.git"
+    },
+    {
+      "id": "nameplate",
+      "type": "depends",
+      "version": ">=1.0.0",
+      "register": "git+https://github.com/AtelierVR/nox.nameplate.git"
     }
   ],
   "constraints": [
@@ -85,6 +91,10 @@
     {
       "type": "after",
       "id": "users"
+    },
+    {
+      "type": "after",
+      "id": "nameplate"
     }
   ],
   "entrypoints": {

@@ -1,10 +1,10 @@
-using System.Linq;
 using Cysharp.Threading.Tasks;
 using Nox.Avatars;
 using Nox.CCK.Mods.Cores;
 using Nox.CCK.Mods.Initializers;
 using Nox.Controllers;
 using Nox.Audio;
+using Nox.Nameplate;
 using Nox.Sessions;
 using Nox.UI;
 using Nox.Users;
@@ -42,6 +42,14 @@ namespace Nox.Desktop.Runtime {
 			=> CoreAPI.ModAPI
 				.GetMod("microphone")
 				.GetInstance<IMicrophoneAPI>();
+
+		/// <summary>
+		/// API of the optional <c>nox.nameplate</c> mod: null when the mod is not loaded.
+		/// </summary>
+		internal static INameplateAPI NameplateAPI
+			=> CoreAPI?.ModAPI?
+				.GetMod("nameplate")?
+				.GetInstance<INameplateAPI>();
 
 		public async UniTask OnInitializeClientAsync(IClientModCoreAPI api) {
 			CoreAPI = api;

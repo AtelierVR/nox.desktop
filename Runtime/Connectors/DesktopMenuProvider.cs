@@ -5,7 +5,9 @@ using Nox.CCK.Utils;
 using Nox.Desktop.Runtime;
 using Nox.UI;
 using UnityEngine;
+using Nox.CCK.Nameplate;
 using Logger = Nox.CCK.Utils.Logger;
+using Keys = Nox.CCK.Nameplate.Constants;
 
 namespace Nox.Desktop.Connectors {
 	public class DesktopMenuProvider : MonoBehaviour, IMenuProvider, IRadialMenuProvider, IDisposable {
@@ -48,6 +50,25 @@ namespace Nox.Desktop.Connectors {
 		private bool _longPressFired;
 		private bool _suppressToggle;
 		private bool _radialWasOpen;
+
+		private DesktopController _controller;
+
+		/// <summary>
+		/// Contrôleur propriétaire du menu : c'est sa plaque qui porte la visibilité des nameplates
+		/// (<c>Controller.Nameplate.Set(Keys.Visible, …)</c>).
+		/// </summary>
+		private DesktopController Controller {
+			get {
+				if (_controller != null)
+					return _controller;
+
+				_controller = GetComponentInParent<DesktopController>(true);
+				if (_controller == null)
+					_controller = Client.ControllerAPI?.Current as DesktopController;
+
+				return _controller;
+			}
+		}
 
 		/// <summary>
 		/// Vrai si le radial est présent à l'écran : on vérifie l'état logique ET
@@ -191,6 +212,10 @@ namespace Nox.Desktop.Connectors {
 
 			if (ControllerLink != null)
 				ControllerLink.canInput = !anyOpen;
+
+			// Nameplates are only shown while a menu is open.
+			if (Controller != null && Controller.Nameplate.IsAlive())
+				Controller.Nameplate.Set(Keys.VISIBLE, anyOpen);
 		}
 
 		/// <summary>
