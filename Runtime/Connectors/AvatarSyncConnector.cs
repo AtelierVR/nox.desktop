@@ -31,75 +31,75 @@ namespace Nox.Desktop.Connectors {
 
 			var parameters = parameterModule.GetParameters();
 			foreach (var param in parameters) {
-				var n = param.GetName();
+				var n = param.Name;
 				switch (n) {
 					case "Grounded": {
 						var grounded = player.IsGrounded();
-						var value    = (bool)param.Get();
+						var value    = (bool)param.Value;
 						if (value == grounded)
 							continue;
-						param.Set(grounded);
+						param.Value = grounded;
 						break;
 					}
 					case "VelocityX": {
 						var worldVelocity = player.body?.linearVelocity ?? Vector3.zero;
 						var localVelocity = transform.InverseTransformDirection(worldVelocity);
-						var value         = param.Get().ToFloat();
+						var value         = param.Value.ToFloat();
 						if (Mathf.Approximately(value, localVelocity.x))
 							continue;
-						param.Set(localVelocity.x);
+						param.Value = localVelocity.x;
 						break;
 					}
 					case "VelocityY": {
 						var worldVelocity = player.body?.linearVelocity ?? Vector3.zero;
 						var localVelocity = transform.InverseTransformDirection(worldVelocity);
-						var value         = param.Get().ToFloat();
+						var value         = param.Value.ToFloat();
 						if (Mathf.Approximately(value, localVelocity.y))
 							continue;
-						param.Set(localVelocity.y);
+						param.Value = localVelocity.y;
 						break;
 					}
 					case "VelocityZ": {
 						var worldVelocity = player.body?.linearVelocity ?? Vector3.zero;
 						var localVelocity = transform.InverseTransformDirection(worldVelocity);
-						var value         = param.Get().ToFloat();
+						var value         = param.Value.ToFloat();
 						if (Mathf.Approximately(value, localVelocity.z))
 							continue;
-						param.Set(localVelocity.z);
+						param.Value = localVelocity.z;
 						break;
 					}
 					case "Velocity": {
 						var worldVelocity = player.body?.linearVelocity ?? Vector3.zero;
 						var localVelocity = transform.InverseTransformDirection(worldVelocity);
-						var value         = param.Get().ToVector3();
+						var value         = param.Value.ToVector3();
 						if (value == localVelocity)
 							continue;
-						param.Set(localVelocity);
+						param.Value = localVelocity;
 						break;
 					}
 					case "VelocityMagnitude": {
 						var worldVelocity = player.body?.linearVelocity ?? Vector3.zero;
 						var magnitude     = worldVelocity.magnitude;
-						var value         = param.Get().ToFloat();
+						var value         = param.Value.ToFloat();
 						if (Mathf.Approximately(value, magnitude))
 							continue;
-						param.Set(magnitude);
+						param.Value = magnitude;
 						break;
 					}
 					case "tracking/head/position": {
 						var cPos  = player.headCamera.transform.position;
-						var value = param.Get().ToVector3();
+						var value = param.Value.ToVector3();
 						if (Vector3.Distance(value, cPos) < 0.001f)
 							continue;
-						param.Set(cPos);
+						param.Value = cPos;
 						break;
 					}
 					case "tracking/head/rotation": {
 						var cRot  = player.headCamera.transform.rotation;
-						var value = param.Get().ToQuaternion();
+						var value = param.Value.ToQuaternion();
 						if (Quaternion.Angle(value, cRot) < 0.001f)
 							continue;
-						param.Set(cRot);
+						param.Value = cRot;
 						break;
 					}
 				}
@@ -109,7 +109,7 @@ namespace Nox.Desktop.Connectors {
 				?? parameterModule.GetParameter("EyeHeight");
 			float maxHeight;
 			if (heightP != null)
-				maxHeight = heightP.Get().ToFloat();
+				maxHeight = heightP.Value.ToFloat();
 			else if (player.headCamera)
 				maxHeight = player.headCamera.transform.position.y - player.transform.position.y;
 			else

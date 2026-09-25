@@ -17,10 +17,9 @@ using Logger = Nox.CCK.Utils.Logger;
 
 namespace Nox.Desktop.Connectors
 {
-	[RequireComponent(typeof(DesktopController))]
 	public class AvatarLoaderConnector : MonoBehaviour
 	{
-		public DesktopPlayer player;
+		public DesktopController Controller;
 
 		private IRuntimeAvatar _runtime;
 		private CancellationTokenSource _context;
@@ -28,22 +27,17 @@ namespace Nox.Desktop.Connectors
 		private Dictionary<string, object> _parameters;
 
 		private void Awake()
-			=> _parameters = new Dictionary<string, object>
-			{
-				["source"] = GetComponent<DesktopController>(),
+			=> _parameters = new Dictionary<string, object> {
+				["source"] = Controller,
 				["desktop"] = true,
 				["local"] = true
 			};
 
 		public void StartUserTracking()
-		{
-			_onUserUpdate = Client.CoreAPI.EventAPI.Subscribe("user_update", OnUserUpdate);
-		}
+			=> _onUserUpdate = Client.CoreAPI.EventAPI.Subscribe("user_update", OnUserUpdate);
 
-		public void Dispose()
-		{
-			if (_onUserUpdate != null)
-			{
+
+		public void Dispose() { {
 				Client.CoreAPI.EventAPI.Unsubscribe(_onUserUpdate);
 				_onUserUpdate = null;
 			}
@@ -57,26 +51,22 @@ namespace Nox.Desktop.Connectors
 		public IRuntimeAvatar GetAvatar()
 			=> _runtime;
 
-		private void OnUserUpdate(EventData context)
-		{
+		private void OnUserUpdate(EventData context) {
 			if (!context.TryGet(0, out ICurrentUser user) || user == null)
 				return;
 			LoadAvatarFromUser(user);
 		}
 
-		public void LoadAvatarFromUser(ICurrentUser user)
-		{
+		public void LoadAvatarFromUser(ICurrentUser user) {
 			if (user?.Avatar.IsValid() != true)
 				return;
 			SetAvatar(user.Avatar).Forget();
 		}
 
-		public async UniTask<bool> SetAvatar(IRuntimeAvatar runtime)
-		{
+		public async UniTask<bool> SetAvatar(IRuntimeAvatar runtime) {
 			Logger.LogDebug("Setting avatar for DesktopController");
 
-			if (!this || !gameObject)
-			{
+			if (!this || !gameObject) {
 				Logger.LogError("AvatarLoaderConnector has been destroyed, cannot set avatar");
 				return false;
 			}
@@ -87,24 +77,21 @@ namespace Nox.Desktop.Connectors
 			var old = _runtime;
 			_runtime = runtime;
 
-			if (_runtime == null)
-			{
+			if (_runtime == null) {
 				Logger.LogWarning("Setting avatar to null, removing current avatar.");
 				_runtime = old;
 				return false;
 			}
 
 			var descriptor = _runtime.Descriptor;
-			if (descriptor == null)
-			{
+			if (descriptor == null) {
 				Logger.LogError("Avatar descriptor is null, cannot set avatar.");
 				_runtime = old;
 				return false;
 			}
 
 			var root = descriptor.Anchor;
-			if (!root)
-			{
+			if (!root) {
 				Logger.LogError("Avatar descriptor root is null, cannot set avatar.");
 				_runtime = old;
 				return false;
@@ -123,14 +110,16 @@ namespace Nox.Desktop.Connectors
 			root.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
 
 			var scaleModule = _runtime.Descriptor.GetModules<IScaleAvatarModule>().FirstOrDefault();
-			player.minMaxHeight = new Vector2(player.minMaxHeight.x, scaleModule?.Height ?? 1.7f);
+			Controller.player.minMaxHeight = new Vector2(
+				Controller.player.minMaxHeight.x, 
+				scaleModule?.Height ?? 1.7f
+			);
 
 			var parameterModule = _runtime.Descriptor
 				?.GetModules<IParameterModule>()
 				.FirstOrDefault();
 
-			if (parameterModule == null)
-			{
+			if (parameterModule == null) {
 				Logger.LogWarning("Avatar has no parameter module, cannot configure tracking parameters.");
 				root.SetActive(true);
 				Client.CoreAPI.EventAPI.Emit("controller_avatar_changed", this, _runtime);
@@ -138,16 +127,14 @@ namespace Nox.Desktop.Connectors
 			}
 
 			var animator = _runtime.Descriptor?.Animator;
-			if (animator && !animator.runtimeAnimatorController)
-			{
+			if (animator && !animator.runtimeAnimatorController) {
 				Logger.LogDebug("Waiting for Animator to be ready...");
 				await UniTask.WaitUntil(() => animator.runtimeAnimatorController);
 			}
 
 			var parameters = parameterModule.GetParameters() ?? Array.Empty<IParameter>();
 			foreach (var param in parameters)
-				switch (param.GetName())
-				{
+				switch (param.Name) {
 					case "rig/ik/head/target":
 					case "tracking/left_hand/active":
 					case "tracking/right_hand/active":
@@ -155,15 +142,17 @@ namespace Nox.Desktop.Connectors
 					case "tracking/right_foot/active":
 					case "tracking/right_toes/active":
 					case "tracking/left_toes/active":
-						param.Set(false);
+						param.Value = false;
 						break;
+
 					case "rig/ik/spine/position_weight":
 					case "rig/ik/spine/hint_weight":
-						param.Set(0f);
+						param.Value = 0f;
 						break;
+
 					case "tracking/head/active":
 					case "IsLocal":
-						param.Set(true);
+						param.Value = true;
 						break;
 				}
 
