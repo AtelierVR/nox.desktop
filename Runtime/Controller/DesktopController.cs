@@ -1,12 +1,9 @@
 using Cysharp.Threading.Tasks;
 using Nox.Avatars.Controllers;
-using Nox.CCK;
 using Nox.CCK.Nameplate;
 using Nox.CCK.Utils;
 using Nox.Controllers;
 using Nox.Desktop.Connectors;
-using Nox.Audio.Players;
-using Nox.Sessions;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -40,12 +37,9 @@ namespace Nox.Desktop.Runtime {
 		public DesktopMenuProvider Menu;
 		public AvatarLoaderConnector avatarLoader;
 		public AvatarSyncConnector avatarSync;
-		[SerializeField] public MicrophoneConnector microphone;
 
 		public DesktopPlayer player;
 		public EventSystem eventSystem;
-
-		private ISessionAPI _sessionApi;
 
 		/// <summary>
 		/// Get the proxy mod API.
@@ -54,11 +48,6 @@ namespace Nox.Desktop.Runtime {
 			=> Client.CoreAPI.ModAPI
 				.GetMod("controllers")
 				.GetInstance<IControllerAPI>();
-
-		private static ISessionAPI SessionAPI
-			=> Client.CoreAPI.ModAPI
-				.GetMod("session")
-				?.GetInstance<ISessionAPI>();
 
 		/// <summary>
 		/// Check if the current proxy is better than Desktop proxy.
@@ -144,29 +133,12 @@ namespace Nox.Desktop.Runtime {
 
 		public void Dispose() {
 			DisposeNameplate();
-			_sessionApi?.OnCurrentChanged.RemoveListener(OnSessionChanged);
-			microphone?.Unbind();
 			Menu.Dispose();
 			avatarLoader?.Dispose();
 			Destroy(gameObject);
 		}
 
-		private void Awake() {
-			SetupNameplate();
-
-			_sessionApi = SessionAPI;
-			if (_sessionApi == null) return;
-			_sessionApi.OnCurrentChanged.AddListener(OnSessionChanged);
-			if (_sessionApi.Current != null && _sessionApi.TryGet(_sessionApi.Current, out var current))
-				OnSessionChanged(null, current);
-		}
-
-		private void OnSessionChanged(ISession old, ISession next) {
-			if (microphone == null) return;
-			microphone.Unbind();
-			if (next?.LocalPlayer is ILocalPlayerVoice voice)
-				microphone.Bind(voice);
-		}
+		private void Awake() => SetupNameplate();
 
 		private void Update() {
 			// The nameplate mod may be loaded after this proxy was created.
