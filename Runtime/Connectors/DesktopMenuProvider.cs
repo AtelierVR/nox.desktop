@@ -51,6 +51,12 @@ namespace Nox.Desktop.Connectors {
 		private bool _suppressToggle;
 		private bool _radialWasOpen;
 
+		/// <summary>
+		/// Dernière visibilité de nameplates poussée (réessayée tant que la plaque du contrôleur
+		/// n'existe pas encore).
+		/// </summary>
+		private bool? _nameplateVisible;
+
 		private DesktopController _controller;
 
 		/// <summary>
@@ -78,6 +84,10 @@ namespace Nox.Desktop.Connectors {
 			=> RadialMenu != null && RadialMenu.Active;
 
 		private void Update() {
+			// Les nameplates ne s'affichent que menu ouvert : on synchronise dès la première frame
+			// (le menu démarre fermé) et tant que la plaque du contrôleur n'est pas créée.
+			SyncNameplate(Menu != null && Menu.Active || IsRadialOpen);
+
 			// Détecte les changements d'état du radial (ex. fermé via son élément
 			// Close, pas par la touche) pour restaurer le mouvement de la tête et
 			// l'état du curseur.
@@ -214,8 +224,24 @@ namespace Nox.Desktop.Connectors {
 				ControllerLink.canInput = !anyOpen;
 
 			// Nameplates are only shown while a menu is open.
-			if (Controller != null && Controller.Nameplate.IsAlive())
-				Controller.Nameplate.Set(Keys.VISIBLE, anyOpen);
+			SyncNameplate(anyOpen);
+		}
+
+		/// <summary>
+		/// Aligne la visibilité de la plaque du client local sur l'état du menu : elle ne s'affiche que
+		/// lorsqu'un menu est ouvert. Les plaques des joueurs distants ne sont pas concernées (elles sont
+		/// pilotées par les scripts).
+		/// </summary>
+		private void SyncNameplate(bool visible) {
+			if (_nameplateVisible == visible)
+				return;
+
+			var plate = Controller?.Nameplate;
+			if (plate == null || !plate.IsAlive())
+				return;
+
+			_nameplateVisible = visible;
+			plate.Set(Keys.VISIBLE, visible);
 		}
 
 		/// <summary>
