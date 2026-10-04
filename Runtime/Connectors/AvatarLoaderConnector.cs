@@ -7,8 +7,8 @@ using Nox.Avatars;
 using Nox.Avatars.Parameters;
 using Nox.Avatars.Players;
 using Nox.Avatars.Scale;
-using Nox.CCK.Avatars;
 using Nox.CCK.Mods.Events;
+using Nox.CCK.Network.Assets;
 using Nox.CCK.Utils;
 using Nox.Desktop.Runtime;
 using Nox.Users;
@@ -192,24 +192,7 @@ namespace Nox.Desktop.Connectors
 			_context?.Cancel();
 			_context = new CancellationTokenSource();
 
-			var version = identifier.GetVersion();
-			if (version == ushort.MaxValue)
-			{
-				var avatarData = await Client.AvatarAPI.Fetch(identifier);
-				version = avatarData.Release.Value;
-			}
-
-			var req = new AssetSearchRequest
-			{
-				Engines = new[] { EngineExtensions.CurrentEngine.GetEngineName() },
-				Platforms = new[] { PlatformExtensions.CurrentPlatform.GetPlatformName() },
-				Versions = new[] { version },
-				Limit = 1
-			};
-
-			var asset = (await Client.AvatarAPI.SearchAssets(identifier, req)
-					.AttachExternalCancellation(_context.Token))
-				.Items.FirstOrDefault();
+			var asset = await Client.AvatarAPI.ResolveBundle(identifier, _context.Token);
 
 			if (_context.IsCancellationRequested)
 				return null;
@@ -226,11 +209,13 @@ namespace Nox.Desktop.Connectors
 				return null;
 			}
 
-			if (!Client.AvatarAPI.HasInCache(asset.Hash))
+			var hash = asset.CacheKey();
+
+			if (!Client.AvatarAPI.HasInCache(hash))
 			{
 				var download = Client.AvatarAPI.DownloadToCache(
 					asset.Url,
-					hash: asset.Hash,
+					hash: hash,
 					progress: p => onProgress?.Invoke($"Downloading avatar {identifier.ToString()}", p),
 					token: _context.Token
 				);
@@ -240,7 +225,7 @@ namespace Nox.Desktop.Connectors
 			}
 
 			var avatar = await Client.AvatarAPI.LoadFromCache(
-				asset.Hash,
+				hash,
 				_parameters,
 				progress: p => onProgress?.Invoke($"Loading avatar {identifier.ToString()}", p),
 				token: _context.Token
@@ -248,13 +233,13 @@ namespace Nox.Desktop.Connectors
 			if (_context.IsCancellationRequested)
 				return null;
 
-			if (avatar == null && Client.AvatarAPI.HasInCache(asset.Hash))
+			if (avatar == null && Client.AvatarAPI.HasInCache(hash))
 			{
 				Logger.LogWarning($"Corrupt cache entry for avatar {identifier.ToString()}, re-downloading...");
-				Client.AvatarAPI.RemoveFromCache(asset.Hash);
+				Client.AvatarAPI.RemoveFromCache(hash);
 				var reDownload = Client.AvatarAPI.DownloadToCache(
 					asset.Url,
-					hash: asset.Hash,
+					hash: hash,
 					progress: p => onProgress?.Invoke($"Re-downloading avatar {identifier.ToString()}", p),
 					token: _context.Token
 				);
@@ -262,7 +247,7 @@ namespace Nox.Desktop.Connectors
 				if (_context.IsCancellationRequested)
 					return null;
 				avatar = await Client.AvatarAPI.LoadFromCache(
-					asset.Hash,
+					hash,
 					_parameters,
 					progress: p => onProgress?.Invoke($"Loading avatar {identifier.ToString()}", p),
 					token: _context.Token

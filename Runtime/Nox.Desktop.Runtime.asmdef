@@ -24,7 +24,9 @@
         "Nox.Sessions",
         "Nox.CCK.Worlds",
         "Nox.Worlds",
-        "Nox.Avatars.Runtime"
+        "Nox.Avatars.Runtime",
+        "Nox.CCK.Network",
+        "Nox.Network"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
