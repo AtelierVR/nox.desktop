@@ -255,7 +255,10 @@ namespace Nox.Desktop.Runtime {
 					for (int i = 0; i < hitCount; i++) {
 						var hit = hitsNonAlloc[i];
 
-						if (hit.collider != bodyCollider) {
+						// Ignorer notre propre corps : le collider capsule ET tous les colliders de l'avatar
+						// (mains/doigts...) qui partagent le même Rigidbody. Sinon ils sont vus comme « sol »
+						// et la position se recolle dessus en boucle → l'avatar monte à l'infini.
+						if (hit.collider != bodyCollider && hit.collider.attachedRigidbody != body) {
 							if (hit.point.y >= point2.y && hit.point.y <= point2.y + maxStepHeight + groundingPenetrationOffset) {
 								float stepAngle = Vector3.Angle(hit.normal, Vector3.up);
 								float dist      = hit.point.y - transform.position.y;
@@ -303,7 +306,8 @@ namespace Nox.Desktop.Runtime {
 				for (int i = 0; i < hitCount; i++) {
 					var hit = hitsNonAlloc[i];
 
-					if (hit.collider != bodyCollider) {
+					// Même exclusion : notre propre Rigidbody (capsule + colliders de l'avatar).
+					if (hit.collider != bodyCollider && hit.collider.attachedRigidbody != body) {
 						if (hit.point.y >= point2.y && hit.point.y <= point2.y + maxStepHeight + groundingPenetrationOffset) {
 							float stepAngle = Vector3.Angle(hit.normal, Vector3.up);
 							float dist      = hit.point.y - transform.position.y;
