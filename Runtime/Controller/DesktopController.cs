@@ -118,7 +118,7 @@ namespace Nox.Desktop.Runtime {
 				desktop.avatarLoader.StartUserTracking();
 			}
 
-			desktop.gameObject.name = $"[{desktop.GetType().Name}_{desktop.GetEntityId().GetHashCode()}]";
+			desktop.gameObject.name = $"[{desktop.GetType().Name}_{ComponentExtension.GetId(desktop)}]";
 			DontDestroyOnLoad(desktop);
 			return true;
 		}
