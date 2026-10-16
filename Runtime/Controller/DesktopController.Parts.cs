@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
-using Nox.CCK;
-using Nox.CCK.Players;
+using Nox.CCK.Entities;
 using Nox.CCK.Utils;
 using Nox.Controllers;
 using UnityEngine;
@@ -92,8 +91,8 @@ namespace Nox.Desktop.Runtime {
 
 		private Dictionary<ushort, Transform> Parts
 			=> _parts ??= new Dictionary<ushort, Transform> {
-				{ PlayerRig.Base.ToIndex(), transform },
-				{ PlayerRig.Head.ToIndex(), player.headCamera.transform }
+				{ EntityRig.Base.ToIndex(), transform },
+				{ EntityRig.Head.ToIndex(), player.headCamera.transform }
 			};
 
 		IReadOnlyDictionary<ushort, TransformObject> IController.GetParts()
