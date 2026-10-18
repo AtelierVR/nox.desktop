@@ -86,6 +86,7 @@ namespace Nox.Desktop.Connectors {
 						param.Value = magnitude;
 						break;
 					}
+
 					case "tracking/head/position": {
 						var cPos  = player.headCamera.transform.position;
 						var value = param.Value.ToVector3();

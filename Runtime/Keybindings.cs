@@ -21,7 +21,8 @@ namespace Nox.Desktop.Runtime {
 			("nox.movement", "crouch", "<Keyboard>/leftShift", value => SetValue("crouch", value), 0f),
 			("nox.movement", "sprint", "<Keyboard>/leftCtrl", value => SetValue("sprint", value), 0f),
 			("nox.ui", "main", "<Keyboard>/tab", value => SetValue("main", value), 0f),
-			("nox.audio", "mute", "<Keyboard>/v", value => ToggleMute(value), 0f)
+			("nox.audio", "mute", "<Keyboard>/v", value => ToggleMute(value), 0f),
+			("nox.audio", "deafen", "<Keyboard>/b", value => ToggleDeafen(value), 0f)
 		};
 
 		static readonly internal UnityEvent<string, float, float> KeyEvent = new();
@@ -79,6 +80,15 @@ namespace Nox.Desktop.Runtime {
 		private static void ToggleMute(float value) {
 			if (value <= 0.5f) return;
 			Client.CoreAPI.EventAPI.Emit("mute");
+		}
+
+		/// <summary>Toggles the voice channel mute on press (deafen).</summary>
+		private static void ToggleDeafen(float value) {
+			if (value <= 0.5f) return;
+
+			var channel = Client.AudioAPI?.GetChannel("voice");
+			if (channel != null)
+				channel.IsMuted = !channel.IsMuted;
 		}
 
 		/// <summary>

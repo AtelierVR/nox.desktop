@@ -40,8 +40,9 @@ namespace Nox.Desktop.Connectors {
 			StartMicrophone();
 
 			_events = new[] {
-				Client.CoreAPI.EventAPI.Subscribe("audio.current_microphone_changed", OnCurrentChanged),
-				Client.CoreAPI.EventAPI.Subscribe("audio.microphone_mute_changed", OnMuteChanged)
+				Client.CoreAPI.EventAPI.Subscribe("audio.microphone.current_changed", OnCurrentChanged),
+				Client.CoreAPI.EventAPI.Subscribe("audio.microphone.mute_changed", OnMuteChanged),
+				Client.CoreAPI.EventAPI.Subscribe("audio.microphone.volume_changed", OnVolumeChanged)
 			};
 		}
 
@@ -73,7 +74,7 @@ namespace Nox.Desktop.Connectors {
 			if (_microphone == null)
 				return;
 
-			_voice.Speak = MicrophoneAPI.Current.IsMuted
+			_voice.Speak = _microphone.IsSilent()
 				? SpeakMode.Muted
 				: _initialSpeak;
 
@@ -91,21 +92,39 @@ namespace Nox.Desktop.Connectors {
 		// ── Settings listeners ────────────────────────────────────────────────
 
 		private void OnMuteChanged(EventData context) {
-			if (_voice == null)
+			if (!TryGetMicrophone(context, out var microphone))
 				return;
 
-			var microphone = !context.TryGet<IMicrophone>(0, out var mic)
+			ApplySilence();
+		}
+
+		/// <summary>Volume 0 captures nothing: it is a mute for the voice state.</summary>
+		private void OnVolumeChanged(EventData context) {
+			if (!TryGetMicrophone(context, out var microphone))
+				return;
+
+			ApplySilence();
+		}
+
+		/// <summary>True when the event comes from the device this connector is bound to.</summary>
+		private bool TryGetMicrophone(EventData context, out IMicrophone microphone) {
+			microphone = null;
+
+			if (_voice == null)
+				return false;
+
+			microphone = !context.TryGet<IMicrophone>(0, out var mic)
 				? throw new ArgumentException("Argument 0 is not a Microphone")
 				: mic;
 
-			if (microphone != _microphone)
+			return microphone == _microphone;
+		}
+
+		private void ApplySilence() {
+			if (_voice == null || _microphone == null)
 				return;
 
-			var muted = !context.TryGet<bool>(1, out var mut)
-				? throw new ArgumentException("Argument 1 is not a bool")
-				: mut;
-
-			_voice.Speak = muted
+			_voice.Speak = _microphone.IsSilent()
 				? SpeakMode.Muted
 				: _initialSpeak;
 		}

@@ -40,8 +40,14 @@ namespace Nox.Desktop.Runtime {
 
 		internal static IMicrophoneAPI MicrophoneAPI
 			=> CoreAPI.ModAPI
-				.GetMod("microphone")
+				.GetMod("audio")
 				.GetInstance<IMicrophoneAPI>();
+
+		/// <summary>Audio API of the audio mod (channels, deafen state).</summary>
+		internal static IAudioAPI AudioAPI
+			=> CoreAPI.ModAPI
+				.GetMod("audio")
+				.GetInstance<IAudioAPI>();
 
 		/// <summary>
 		/// API of the optional <c>nox.nameplate</c> mod: null when the mod is not loaded.
