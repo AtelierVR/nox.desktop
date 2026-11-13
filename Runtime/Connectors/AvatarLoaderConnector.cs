@@ -7,6 +7,7 @@ using Nox.Avatars;
 using Nox.Avatars.Parameters;
 using Nox.Avatars.Players;
 using Nox.Avatars.Scale;
+using Nox.Assets;
 using Nox.CCK.Mods.Events;
 using Nox.CCK.Network.Assets;
 using Nox.CCK.Utils;
@@ -37,15 +38,24 @@ namespace Nox.Desktop.Connectors
 			=> _onUserUpdate = Client.CoreAPI.EventAPI.Subscribe("user_update", OnUserUpdate);
 
 
-		public void Dispose() { {
-				Client.CoreAPI.EventAPI.Unsubscribe(_onUserUpdate);
-				_onUserUpdate = null;
-			}
+		/// <summary>
+		/// Releases the connector and completes once its avatar is really gone: disposing an avatar writes
+		/// its last values, and the table they go to is unloaded with the mods right after.
+		/// </summary>
+		public UniTask Dispose() {
+			Client.CoreAPI.EventAPI.Unsubscribe(_onUserUpdate);
+			_onUserUpdate = null;
+
 			_context?.Cancel();
 			_context?.Dispose();
 			_context = null;
-			_runtime?.Dispose();
+
+			var runtime = _runtime;
 			_runtime = null;
+
+			return runtime != null
+				? runtime.Dispose()
+				: UniTask.CompletedTask;
 		}
 
 		public IRuntimeAvatar GetAvatar()
@@ -115,9 +125,11 @@ namespace Nox.Desktop.Connectors
 			root.transform.SetParent(transform, false);
 			root.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
 
+			Controller.ResolveEyes();
+
 			var scaleModule = _runtime.Descriptor.GetModules<IScaleAvatarModule>().FirstOrDefault();
 			Controller.player.minMaxHeight = new Vector2(
-				Controller.player.minMaxHeight.x, 
+				Controller.player.minMaxHeight.x,
 				scaleModule?.Height ?? 1.7f
 			);
 
@@ -141,22 +153,22 @@ namespace Nox.Desktop.Connectors
 			var parameters = parameterModule.GetParameters() ?? Array.Empty<IParameter>();
 			foreach (var param in parameters)
 				switch (param.Name) {
-					case "rig/ik/head/target":
-					case "tracking/left_hand/active":
-					case "tracking/right_hand/active":
-					case "tracking/left_foot/active":
-					case "tracking/right_foot/active":
-					case "tracking/right_toes/active":
-					case "tracking/left_toes/active":
+					case "Rig/Ik/Head/Target":
+					case "Tracking/LeftHand/Active":
+					case "Tracking/RightHand/Active":
+					case "Tracking/LeftFoot/Active":
+					case "Tracking/RightFoot/Active":
+					case "Tracking/RightToes/Active":
+					case "Tracking/LeftToes/Active":
 						param.Value = false;
 						break;
 
-					case "rig/ik/spine/position_weight":
-					case "rig/ik/spine/hint_weight":
+					case "Rig/Ik/Spine/PositionWeight":
+					case "Rig/Ik/Spine/HintWeight":
 						param.Value = 0f;
 						break;
 
-					case "tracking/head/active":
+					case "Tracking/Head/Active":
 					case "IsLocal":
 						param.Value = true;
 						break;
@@ -220,8 +232,7 @@ namespace Nox.Desktop.Connectors
 			if (!Client.AvatarAPI.HasInCache(hash))
 			{
 				var download = Client.AvatarAPI.DownloadToCache(
-					asset.Url,
-					hash: hash,
+					new IdentifierCache(identifier, asset),
 					progress: p => onProgress?.Invoke($"Downloading avatar {identifier.ToString()}", p),
 					token: _context.Token
 				);
@@ -244,8 +255,7 @@ namespace Nox.Desktop.Connectors
 				Logger.LogWarning($"Corrupt cache entry for avatar {identifier.ToString()}, re-downloading...");
 				Client.AvatarAPI.RemoveFromCache(hash);
 				var reDownload = Client.AvatarAPI.DownloadToCache(
-					asset.Url,
-					hash: hash,
+					new IdentifierCache(identifier, asset),
 					progress: p => onProgress?.Invoke($"Re-downloading avatar {identifier.ToString()}", p),
 					token: _context.Token
 				);
@@ -276,6 +286,8 @@ namespace Nox.Desktop.Connectors
 
 			Logger.LogDebug($"Avatar loaded: {identifier.ToString()}");
 			avatar.Identifier = identifier;
+			avatar.Owner      = Client.UserAPI?.Current?.Identifier
+				?? Identifier.Invalid;
 			await SetAvatar(avatar);
 			if (playerAvatar != null)
 				await playerAvatar.OnAvatarReady();
