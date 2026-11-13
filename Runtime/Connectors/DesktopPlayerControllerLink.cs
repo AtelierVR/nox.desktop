@@ -54,6 +54,20 @@ namespace Nox.Desktop.Connectors {
 
 		public bool canInput = true;
 
+		/// <summary>
+		/// Whether the mouse may drive the player: no menu is open, and the window of the game has the focus.
+		/// </summary>
+		public bool CanPlay
+			=> canInput && !DesktopInput.Blocked;
+
+		/// <summary>
+		/// Whether the mouse may turn the view: the player can play, and the cursor is still locked to the game.
+		/// The editor releases the cursor as soon as the Game view loses the focus, which is what stops the camera
+		/// from turning on the moves of the mouse made over another window.
+		/// </summary>
+		public bool CanLook
+			=> CanPlay && Cursor.lockState == CursorLockMode.Locked;
+
 		private void Start() {
 			if (!player) {
 				player = GetComponent<DesktopPlayer>();
@@ -61,8 +75,17 @@ namespace Nox.Desktop.Connectors {
 					Logger.LogError("No DesktopPlayer found!");
 			}
 
+			// The focus message is not sent at startup: start from what the window says.
+			DesktopInput.SetFocused(Application.isFocused);
+
 			// Lock cursor to center of screen for FPS-style look
 			Cursor.lockState = CursorLockMode.Locked;
+
+			// The camera keeps the rotation written in the scene until the mouse is moved vertically, which
+			// leaves it looking into the head of the avatar: apply the look rotation once, so the view starts
+			// level with the body.
+			if (player && player.headCamera)
+				player.headCamera.transform.localRotation = Quaternion.Euler(verticalRotation, 0f, 0f);
 		}
 
 		private void Update() {
@@ -86,7 +109,7 @@ namespace Nox.Desktop.Connectors {
 		}
 
 		private Vector3 GetMovementInput() {
-			if (!canInput) return Vector3.zero;
+			if (!CanPlay) return Vector3.zero;
 
 			// Use the existing Keybindings.GetMovement() method
 			var input = Keybindings.GetMovement();
@@ -99,8 +122,9 @@ namespace Nox.Desktop.Connectors {
 		}
 
 		private void HandleMouseLook() {
-			// Block mouse look if menu is open
-			if (!canInput) return;
+			// Block mouse look if menu is open, if the window lost the focus, or if the cursor is not locked to
+			// the game: the camera must not turn on a delta the mouse built while the game was not listening.
+			if (!CanLook) return;
 
 			// Get mouse input using new Input System
 			var mouse = InputSystem.GetDevice<Mouse>();
@@ -132,8 +156,8 @@ namespace Nox.Desktop.Connectors {
 		}
 
 		private void HandleJumpInput() {
-			// Block jump input if menu is open
-			if (!canInput) return;
+			// Block jump input if menu is open, or the window lost the focus
+			if (!CanPlay) return;
 
 			var jumpCurrentlyPressed = Keybindings.IsPressed("jump");
 			var isGrounded           = player.IsGrounded(); // Assuming this method exists
@@ -208,8 +232,8 @@ namespace Nox.Desktop.Connectors {
 		}
 
 		private void HandleCrouchInput() {
-			// Block crouch input if menu is open
-			if (!canInput) return;
+			// Block crouch input if menu is open, or the window lost the focus
+			if (!CanPlay) return;
 
 			var crouchPressed = Keybindings.IsPressed("crouch");
 			// Only crouch if not flying
@@ -218,8 +242,8 @@ namespace Nox.Desktop.Connectors {
 		}
 
 		private void HandleSprintInput() {
-			// Block sprint input if menu is open
-			if (!canInput) return;
+			// Block sprint input if menu is open, or the window lost the focus
+			if (!CanPlay) return;
 
 			var sprintCurrentlyPressed = Keybindings.IsPressed("sprint");
 			player.SetSprinting(sprintCurrentlyPressed);
@@ -252,8 +276,10 @@ namespace Nox.Desktop.Connectors {
 		}
 
 		private void OnApplicationFocus(bool hasFocus) {
-			// Re-lock cursor when application gains focus, but only if menu is not open
-			if (hasFocus && canInput)
+			DesktopInput.SetFocused(hasFocus);
+
+			// Re-lock cursor when application gains focus, but only if no menu is open
+			if (hasFocus && CanPlay)
 				Cursor.lockState = CursorLockMode.Locked;
 		}
 	}

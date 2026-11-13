@@ -1,6 +1,9 @@
+using System;
 using System.Collections;
+using System.Collections.Generic;
+using Nox.CCK.Utils;
+using Nox.Desktop.Runtime.Interaction;
 using UnityEngine;
-using Nox.UI;
 using Logger = Nox.CCK.Utils.Logger;
 using Transform = UnityEngine.Transform;
 
@@ -12,6 +15,56 @@ namespace Nox.Desktop.Runtime {
 
 		public Transform forwardFollow;
 		public CapsuleCollider bodyCollider;
+
+		[Header("Interaction")]
+		[SerializeField, Min(0f), Tooltip("Longest distance the grab ray reaches, in metres. 0 = no limit: each grabbable decides with its own range.")]
+		private float maxGrabDistance;
+
+		[Header("Interaction")]
+		[SerializeField, Tooltip("Use the nox.interactions grabber (DesktopGrabber) instead of the legacy DesktopInteractor.")]
+		private bool useInteractionGrabber = true;
+
+		[Header("Body colliders")]
+		[SerializeField, Tooltip("Extra colliders of the player's body (head, hands, avatar parts). bodyCollider is always added. A carried object ignores them all, so it can be brought into the body without colliding with - or pushing - it.")]
+		private Collider[] extraBodyColliders = System.Array.Empty<Collider>();
+
+		private readonly List<Collider> _bodyColliders = new();
+
+		/// <summary>Colliders of the player's own body, handed to the interactor so a carried object ignores them.</summary>
+		public IReadOnlyList<Collider> BodyColliders
+			=> _bodyColliders;
+
+		/// <summary>Near/far interaction ray of the desktop view (grabs the shared grabbables).</summary>
+		public DesktopInteractor Interactor { get; private set; }
+
+		/// <summary>Grabber of the nox.interactions system, when <c>useInteractionGrabber</c> is on.</summary>
+		public DesktopGrabber Grabber { get; private set; }
+
+		/// <summary>Whether the view currently carries an object, whichever grabber runs.</summary>
+		public bool IsHolding
+			=> Interactor
+				? Interactor.IsHolding
+				: Grabber != null && Grabber.IsHolding;
+
+		/// <summary>Whether the view currently points at something it can take.</summary>
+		public bool HasHover
+			=> Interactor
+			? Interactor.Hovered != null
+			: Grabber != null && Grabber.Hovered != null;
+
+		/// <summary>
+		/// Raised once per frame, when the view camera has been placed where the frame is drawn from: the avatar
+		/// moves it onto its eyes after <c>LateUpdate</c>, so anything aiming with the camera listens to this
+		/// instead of walking the render pipeline.
+		/// </summary>
+		internal event Action ViewPlaced;
+
+		/// <summary>Whether a connector places the view camera at render time (see <see cref="ViewPlaced"/>).</summary>
+		internal bool HasViewSync { get; set; }
+
+		/// <summary>Tells the listeners that the pose of the view camera is final for this frame.</summary>
+		internal void NotifyViewPlaced()
+			=> ViewPlaced?.Invoke();
 
 		[Header("Movement")]
 		public bool useMovement = true;
@@ -30,7 +83,7 @@ namespace Nox.Desktop.Runtime {
 		public float crouchHeight = 0.6f;
 		public float heightSmoothSpeed = 10f;
 		public bool autoAdjustColliderHeight = true;
-		public Vector2 minMaxHeight = new Vector2(0.5f, 2.5f);
+		public Vector2 minMaxHeight = new(0.5f, 2.5f);
 
 		[Header("Grounding")]
 		public bool useGrounding = true;
@@ -49,17 +102,17 @@ namespace Nox.Desktop.Runtime {
 		public float flyAcceleration = 20f;
 		public float verticalFlySpeed = 3f; // Private fields
 		public Rigidbody body;
-		private Vector3 moveDirection;
-		private Vector3 flyDirection;
-		private float turningAxis;
-		private bool isGrounded = false;
-		private bool isFlying = false;
-		private bool isSprinting = false;
-		private bool lastCrouching;
-		private RaycastHit lastGroundHit;
-		private bool tempDisableGrounding = false;
-		private bool isGroundedWhileFlying = false;
-		private RaycastHit lastFlyingGroundHit;
+		private Vector3 _moveDirection;
+		private Vector3 _flyDirection;
+		private float _turningAxis;
+		private bool _isGrounded = false;
+		private bool _isFlying = false;
+		private bool _isSprinting = false;
+		private bool _lastCrouching;
+		private RaycastHit _lastGroundHit;
+		private bool _tempDisableGrounding = false;
+		private bool _isGroundedWhileFlying = false;
+		private RaycastHit _lastFlyingGroundHit;
 
 		public virtual void Awake() {
 			body = GetComponent<Rigidbody>();
@@ -69,6 +122,38 @@ namespace Nox.Desktop.Runtime {
 				forwardFollow = headCamera.transform;
 
 			bodyCollider = GetComponent<CapsuleCollider>();
+			RefreshBodyColliders();
+
+			if (useInteractionGrabber) {
+				Grabber = gameObject.GetOrAddComponent<DesktopGrabber>();
+				Grabber.View = headCamera;
+				Grabber.MaxDistance = maxGrabDistance;
+				Grabber.Bind(this);
+			}
+			else {
+				Interactor = gameObject.GetOrAddComponent<DesktopInteractor>();
+				Interactor.View = headCamera;
+				Interactor.MaxDistance = maxGrabDistance;
+				Interactor.Bind(this);
+			}
+		}
+
+		/// <summary>
+		/// Collects the colliders of the body from the prefab fields, without walking the hierarchy. Call it
+		/// again when the body gains colliders at runtime (a loaded avatar, a worn prop).
+		/// </summary>
+		public void RefreshBodyColliders() {
+			_bodyColliders.Clear();
+
+			if (bodyCollider)
+				_bodyColliders.Add(bodyCollider);
+
+			for (var i = 0; i < extraBodyColliders.Length; i++) {
+				var collider = extraBodyColliders[i];
+
+				if (collider && !_bodyColliders.Contains(collider))
+					_bodyColliders.Add(collider);
+			}
 		}
 
 		public virtual void Start() {
@@ -77,7 +162,11 @@ namespace Nox.Desktop.Runtime {
 				return;
 			}
 
-			// Configuration will be applied manually when needed
+			if (Interactor)
+				Interactor.View = headCamera;
+
+			if (Grabber)
+				Grabber.View = headCamera;
 		}
 
 		/// <summary>Sets move direction for this fixedupdate</summary>
@@ -85,38 +174,40 @@ namespace Nox.Desktop.Runtime {
 			if (!useMovement)
 				return;
 
-			// Apply deadzone
 			if (useDeadzone && axis.magnitude < movementDeadzone) {
-				moveDirection = Vector3.zero;
+				_moveDirection = Vector3.zero;
 				return;
 			}
 
-			Vector3 forward = useRelativeDirection ? forwardFollow.forward : Vector3.forward;
-			Vector3 right   = useRelativeDirection ? forwardFollow.right : Vector3.right;
+			var forward = useRelativeDirection
+				? forwardFollow.forward
+				: Vector3.forward;
+			var right = useRelativeDirection
+				? forwardFollow.right
+				: Vector3.right;
 
-			// Flatten vectors to avoid unwanted vertical movement
 			forward.y = 0;
-			right.y   = 0;
+			right.y = 0;
 			forward.Normalize();
 			right.Normalize();
 
-			moveDirection = (forward * axis.y + right * axis.x).normalized;
+			_moveDirection = (forward * axis.y + right * axis.x).normalized;
 		}
 
 		/// <summary>Sets sprint state</summary>
 		public virtual void SetSprinting(bool sprinting) {
-			isSprinting = sprinting;
+			_isSprinting = sprinting;
 		}
 
 		/// <summary>Sets turning axis for smooth turning</summary>
 		public virtual void Turn(float axis) {
 			if (!useMovement)
 				return;
-			turningAxis = axis;
+			_turningAxis = axis;
 		}
 
 		public virtual void Jump() {
-			if (!isGrounded)
+			if (!_isGrounded)
 				return;
 			DisableGrounding(0.1f);
 			body.useGravity = true;
@@ -126,254 +217,221 @@ namespace Nox.Desktop.Runtime {
 		public virtual void ToggleFlying() {
 			if (!mayFly)
 				return;
-			isFlying = !isFlying;
-			// When flying, disable grounding and gravity
-			// When not flying, enable grounding and let Ground() manage gravity
-			if (isFlying)
+			_isFlying = !_isFlying;
+			if (_isFlying)
 				body.useGravity = false;
 
-			// Gravity will be managed by Ground() method
-			flyDirection = Vector3.zero;
+			_flyDirection = Vector3.zero;
 		}
 
 		/// <summary>Sets fly direction including vertical movement</summary>
 		public virtual void Fly(Vector3 direction) {
-			if (!isFlying || !mayFly)
+			if (!_isFlying || !mayFly)
 				return;
-			flyDirection = direction;
+			_flyDirection = direction;
 		}
 
-		public virtual void SetCrouching(bool crouch) {
-			crouching = crouch;
-		}
+		public virtual void SetCrouching(bool crouch)
+			=> crouching = crouch;
 
 		protected virtual void FixedUpdate() {
 			if (!useMovement)
 				return;
 			UpdateRigidbody();
 			Ground();
-			CheckGroundWhileFlying(); // Always check ground even when flying
+
+			if (_isFlying)
+				CheckGroundWhileFlying();
+
 			UpdatePlayerHeight();
 		}
 
 		protected virtual void UpdateRigidbody() {
-			var move = moveDirection;
+			var move = _moveDirection;
 			var yVel = body.linearVelocity.y;
 
-			if (isFlying) {
-				// Flying movement with vertical control
-				Vector3 targetVelocity = move * flySpeed;
+			if (_isFlying) {
+				var targetVelocity = move * flySpeed;
 
-				// Add vertical movement for flying
-				if (flyDirection.y != 0) {
-					targetVelocity.y = flyDirection.y * verticalFlySpeed;
-				}
+				if (_flyDirection.y != 0)
+					targetVelocity.y = _flyDirection.y * verticalFlySpeed;
 
-				// Use MoveTowards to respect speed limits
 				var newVel = Vector3.MoveTowards(body.linearVelocity, targetVelocity, flyAcceleration * Time.fixedDeltaTime);
-				if (newVel.magnitude > flySpeed && flyDirection.y == 0) {
-					Vector3 horizontal = new Vector3(newVel.x, 0, newVel.z);
+				if (newVel.magnitude > flySpeed && _flyDirection.y == 0) {
+					var horizontal = new Vector3(newVel.x, 0, newVel.z);
 					if (horizontal.magnitude > flySpeed) {
 						horizontal = horizontal.normalized * flySpeed;
-						newVel     = new Vector3(horizontal.x, newVel.y, horizontal.z);
+						newVel = new Vector3(horizontal.x, newVel.y, horizontal.z);
 					}
 				}
 
 				body.linearVelocity = newVel;
-			} else {
-				// Ground movement - exactly
-				if (move != Vector3.zero) {
-					// Calculate current move speed with sprint modifier
-					float currentMaxSpeed = maxMoveSpeed;
-					if (isSprinting && !crouching) {
-						currentMaxSpeed *= sprintMultiplier;
-					}
+			} else if (move != Vector3.zero) {
+				var currentMaxSpeed = maxMoveSpeed;
+				if (_isSprinting && !crouching)
+					currentMaxSpeed *= sprintMultiplier;
 
-					// Use MoveTowards to smoothly reach target velocity
-					var newVel = Vector3.MoveTowards(body.linearVelocity, move * currentMaxSpeed, moveAcceleration * Time.fixedDeltaTime);
+				var newVel = Vector3.MoveTowards(body.linearVelocity, move * currentMaxSpeed, moveAcceleration * Time.fixedDeltaTime);
 
-					// Ensure we don't exceed max speed
-					if (newVel.magnitude > currentMaxSpeed) {
-						newVel = newVel.normalized * currentMaxSpeed;
-					}
+				if (newVel.magnitude > currentMaxSpeed)
+					newVel = newVel.normalized * currentMaxSpeed;
 
-					// Preserve vertical velocity
-					newVel.y            = yVel;
-					body.linearVelocity = newVel;
-				}
+				newVel.y = yVel;
+				body.linearVelocity = newVel;
 			}
 
-			// Apply drag
 			UpdateDrag();
 
-			// Handle turning
-			if (Mathf.Abs(turningAxis) > 0.001f) {
-				transform.Rotate(0, turningAxis * 90f * Time.fixedDeltaTime, 0);
-			}
+			if (Mathf.Abs(_turningAxis) > 0.001f)
+				transform.Rotate(0, _turningAxis * 90f * Time.fixedDeltaTime, 0);
 		}
 
 		protected virtual void UpdateDrag() {
-			// Apply drag
-			if (moveDirection.magnitude <= movementDeadzone && isGrounded) {
-				// Strong drag when grounded and not moving (like foot strength)
-				body.linearVelocity *= (Mathf.Clamp01(1 - groundedDrag * Time.fixedDeltaTime));
-			} else if (!useGrounding || isFlying) {
-				// Flying drag when not using grounding or actually flying
-				body.linearVelocity *= (Mathf.Clamp01(1 - flyingDrag * Time.fixedDeltaTime));
-			}
-			// No extra drag when moving on ground to maintain smooth movement
+			if (_moveDirection.magnitude <= movementDeadzone && _isGrounded) {
+				body.linearVelocity *= Mathf.Clamp01(1 - groundedDrag * Time.fixedDeltaTime);
+			} else if (!useGrounding || _isFlying)
+				body.linearVelocity *= Mathf.Clamp01(1 - flyingDrag * Time.fixedDeltaTime);
 		}
 
-		RaycastHit[] hitsNonAlloc = new RaycastHit[ 128 ];
+		readonly RaycastHit[] hitsNonAlloc = new RaycastHit[128];
 
 		protected virtual void Ground() {
-			isGrounded    = false;
-			lastGroundHit = new RaycastHit();
+			_isGrounded = false;
+			_lastGroundHit = new RaycastHit();
 
-			if (!tempDisableGrounding && useGrounding && !isFlying) {
+			if (!_tempDisableGrounding && useGrounding && !_isFlying) {
 				float highestPoint = -1;
-				float scale        = transform.lossyScale.x > transform.lossyScale.z ? transform.lossyScale.x : transform.lossyScale.z;
+				var scale = transform.lossyScale.x > transform.lossyScale.z ? transform.lossyScale.x : transform.lossyScale.z;
 
-				// Calculate points
-				var point1 = scale * bodyCollider.center + transform.position + scale * bodyCollider.height / 2f * -Vector3.up + (maxStepHeight + scale * bodyCollider.radius * 2) * Vector3.up;
-				var point2 = scale * bodyCollider.center + transform.position + (scale * bodyCollider.height / 2f + groundingPenetrationOffset) * -Vector3.up;
+				var point1 = scale * bodyCollider.center
+					+ transform.position
+					+ scale * bodyCollider.height / 2f * -Vector3.up
+					+ (maxStepHeight + scale * bodyCollider.radius * 2) * Vector3.up;
+				var point2 = scale * bodyCollider.center
+					+ transform.position
+					+ (scale * bodyCollider.height / 2f + groundingPenetrationOffset) * -Vector3.up;
 
-				// First pass with larger radius
-				var radius   = scale * bodyCollider.radius * 2 + Physics.defaultContactOffset * 2;
-				int hitCount = Physics.SphereCastNonAlloc(point1, radius, -Vector3.up, hitsNonAlloc, Vector3.Distance(point1, point2) + scale * bodyCollider.radius * 4, groundLayerMask, QueryTriggerInteraction.Ignore);
+				var radius = scale * bodyCollider.radius * 2 + Physics.defaultContactOffset * 2;
+				var hitCount = Physics.SphereCastNonAlloc(point1, radius, -Vector3.up, hitsNonAlloc, Vector3.Distance(point1, point2) + scale * bodyCollider.radius * 4, groundLayerMask, QueryTriggerInteraction.Ignore);
 
 				CheckGroundHits();
 
-				if (!isGrounded && hitCount > 0) {
-					// Second pass with smaller radius
-					radius   = scale * bodyCollider.radius;
+				if (!_isGrounded && hitCount > 0) {
+					radius = scale * bodyCollider.radius;
 					hitCount = Physics.SphereCastNonAlloc(point1, radius, -Vector3.up, hitsNonAlloc, Vector3.Distance(point1, point2) + scale * bodyCollider.radius * 4, groundLayerMask, QueryTriggerInteraction.Ignore);
 					CheckGroundHits();
 				}
 
 				void CheckGroundHits() {
-					for (int i = 0; i < hitCount; i++) {
+					for (var i = 0; i < hitCount; i++) {
 						var hit = hitsNonAlloc[i];
 
-						// Ignorer notre propre corps : le collider capsule ET tous les colliders de l'avatar
-						// (mains/doigts...) qui partagent le même Rigidbody. Sinon ils sont vus comme « sol »
-						// et la position se recolle dessus en boucle → l'avatar monte à l'infini.
-						if (hit.collider != bodyCollider && hit.collider.attachedRigidbody != body) {
+						if (hit.collider != bodyCollider && hit.collider.attachedRigidbody != body)
 							if (hit.point.y >= point2.y && hit.point.y <= point2.y + maxStepHeight + groundingPenetrationOffset) {
-								float stepAngle = Vector3.Angle(hit.normal, Vector3.up);
-								float dist      = hit.point.y - transform.position.y;
+								var stepAngle = Vector3.Angle(hit.normal, Vector3.up);
+								var dist = hit.point.y - transform.position.y;
 
 								if (stepAngle < maxStepAngle && dist > highestPoint) {
-									isGrounded    = true;
-									highestPoint  = dist;
-									lastGroundHit = hit;
+									_isGrounded = true;
+									highestPoint = dist;
+									_lastGroundHit = hit;
 								}
 							}
-						}
 					}
 				}
 
-				if (isGrounded) {
-					// Zero out vertical velocity since we're grounded
+				if (_isGrounded) {
 					body.linearVelocity = new Vector3(body.linearVelocity.x, 0, body.linearVelocity.z);
 
-					// Position the body to stick to ground
-					body.position      = new Vector3(body.position.x, lastGroundHit.point.y, body.position.z);
+					body.position = new Vector3(body.position.x, _lastGroundHit.point.y, body.position.z);
 					transform.position = body.position;
-				} // Manage gravity
+				}
 
-				body.useGravity = !isGrounded;
+				body.useGravity = !_isGrounded;
 			}
 		}
 
 		protected virtual void CheckGroundWhileFlying() {
-			// Always check ground detection, even while flying
-			isGroundedWhileFlying = false;
-			lastFlyingGroundHit   = new RaycastHit();
+			_isGroundedWhileFlying = false;
+			_lastFlyingGroundHit = new RaycastHit();
 
-			if (!tempDisableGrounding && useGrounding) {
+			if (!_tempDisableGrounding && useGrounding) {
 				float highestPoint = -1;
-				float scale        = transform.lossyScale.x > transform.lossyScale.z ? transform.lossyScale.x : transform.lossyScale.z;
+				var scale = transform.lossyScale.x > transform.lossyScale.z
+					? transform.lossyScale.x
+					: transform.lossyScale.z;
 
-				// Calculate points
-				var point1 = scale * bodyCollider.center + transform.position + scale * bodyCollider.height / 2f * -Vector3.up + (maxStepHeight + scale * bodyCollider.radius * 2) * Vector3.up;
-				var point2 = scale * bodyCollider.center + transform.position + (scale * bodyCollider.height / 2f + groundingPenetrationOffset) * -Vector3.up;
+				var point1 = scale * bodyCollider.center
+					+ transform.position
+					+ scale * bodyCollider.height / 2f * -Vector3.up
+					+ (maxStepHeight + scale * bodyCollider.radius * 2) * Vector3.up;
+				var point2 = scale * bodyCollider.center
+					+ transform.position
+					+ (scale * bodyCollider.height / 2f + groundingPenetrationOffset) * -Vector3.up;
 
-				// Use a smaller radius for flying ground detection
-				var radius   = scale * bodyCollider.radius;
-				int hitCount = Physics.SphereCastNonAlloc(point1, radius, -Vector3.up, hitsNonAlloc, Vector3.Distance(point1, point2) + scale * bodyCollider.radius * 4, groundLayerMask, QueryTriggerInteraction.Ignore);
+				var radius = scale * bodyCollider.radius;
+				var hitCount = Physics.SphereCastNonAlloc(point1, radius, -Vector3.up, hitsNonAlloc, Vector3.Distance(point1, point2) + scale * bodyCollider.radius * 4, groundLayerMask, QueryTriggerInteraction.Ignore);
 
-				for (int i = 0; i < hitCount; i++) {
+				for (var i = 0; i < hitCount; i++) {
 					var hit = hitsNonAlloc[i];
 
-					// Même exclusion : notre propre Rigidbody (capsule + colliders de l'avatar).
-					if (hit.collider != bodyCollider && hit.collider.attachedRigidbody != body) {
+					if (hit.collider != bodyCollider && hit.collider.attachedRigidbody != body)
 						if (hit.point.y >= point2.y && hit.point.y <= point2.y + maxStepHeight + groundingPenetrationOffset) {
-							float stepAngle = Vector3.Angle(hit.normal, Vector3.up);
-							float dist      = hit.point.y - transform.position.y;
+							var stepAngle = Vector3.Angle(hit.normal, Vector3.up);
+							var dist = hit.point.y - transform.position.y;
 
 							if (stepAngle < maxStepAngle && dist > highestPoint) {
-								isGroundedWhileFlying = true;
-								highestPoint          = dist;
-								lastFlyingGroundHit   = hit;
+								_isGroundedWhileFlying = true;
+								highestPoint = dist;
+								_lastFlyingGroundHit = hit;
 							}
 						}
-					}
 				}
 			}
 		}
 
 		protected virtual void UpdatePlayerHeight() {
-			if (crouching != lastCrouching) {
-				lastCrouching = crouching;
-			}
+			if (crouching != _lastCrouching)
+				_lastCrouching = crouching;
 
 			if (autoAdjustColliderHeight) {
-				float targetHeight = crouching ? crouchHeight : minMaxHeight.y;
+				var targetHeight = crouching
+					? crouchHeight
+					: minMaxHeight.y;
 				targetHeight = Mathf.Clamp(targetHeight, minMaxHeight.x, minMaxHeight.y);
 
 				bodyCollider.height = Mathf.Lerp(bodyCollider.height, targetHeight, Time.deltaTime * heightSmoothSpeed);
 
-				// Adjust center to keep feet on ground
 				bodyCollider.center = new Vector3(0, bodyCollider.height * 0.5f + heightOffset, 0);
 			}
 		}
 
-		public bool IsGrounded() {
-			// Return true if grounded normally OR if flying and ground is detected
-			return isGrounded || (isFlying && isGroundedWhileFlying);
-		}
+		public bool IsGrounded()
+			=> _isGrounded || (_isFlying && _isGroundedWhileFlying);
 
-		public bool IsFlying() {
-			return isFlying;
-		}
+		public bool IsFlying()
+			=> _isFlying;
 
-		public bool MayFly() {
-			return mayFly;
-		}
+		public bool MayFly()
+			=> mayFly;
 
-		public bool IsSprinting() {
-			return isSprinting;
-		}
+		public bool IsSprinting()
+			=> _isSprinting;
 
-		public Vector3 GetMoveDirection() {
-			return moveDirection;
-		}
+		public Vector3 GetMoveDirection()
+			=> _moveDirection;
 
 		public float GetCurrentMoveSpeed() {
-			float speed = maxMoveSpeed;
-			if (isSprinting && !crouching) {
+			var speed = maxMoveSpeed;
+			if (_isSprinting && !crouching)
 				speed *= sprintMultiplier;
-			}
-
 			return speed;
 		}
 
 		public void SetMayFly(bool value) {
 			mayFly = value;
-			if (!mayFly && isFlying) {
+			if (!mayFly && _isFlying)
 				ToggleFlying();
-			}
 		}
 
 		/// <summary>
@@ -382,17 +440,13 @@ namespace Nox.Desktop.Runtime {
 		/// <param name="position">Nouvelle position à appliquer</param>
 		/// <param name="disableGroundingDuration">Durée en secondes pour désactiver le grounding (par défaut 0.1s)</param>
 		public void SetPosition(Vector3 position, float disableGroundingDuration = 0.1f) {
-			// Désactiver temporairement le grounding pour éviter qu'il corrige la position
 			DisableGrounding(disableGroundingDuration);
 
-			// Appliquer la nouvelle position au Transform et au Rigidbody
 			transform.position = position;
-			body.position      = position;
+			body.position = position;
 
-			// Réinitialiser la vitesse verticale pour éviter des comportements étranges
-			if (body.useGravity && !isFlying) {
+			if (body.useGravity && !_isFlying)
 				body.linearVelocity = new Vector3(body.linearVelocity.x, 0, body.linearVelocity.z);
-			}
 		}
 
 		public void DisableGrounding(float seconds) {
@@ -404,10 +458,10 @@ namespace Nox.Desktop.Runtime {
 		private Coroutine _disableGroundingRoutine;
 
 		IEnumerator DisableGroundingSecondsRoutine(float seconds) {
-			tempDisableGrounding = true;
-			isGrounded           = false;
+			_tempDisableGrounding = true;
+			_isGrounded = false;
 			yield return new WaitForSeconds(seconds);
-			tempDisableGrounding = false;
+			_tempDisableGrounding = false;
 		}
 
 		public float Height

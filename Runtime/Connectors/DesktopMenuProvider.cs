@@ -61,7 +61,7 @@ namespace Nox.Desktop.Connectors {
 
 		/// <summary>
 		/// Contrôleur propriétaire du menu : c'est sa plaque qui porte la visibilité des nameplates
-		/// (<c>Controller.Nameplate.Set(Keys.Visible, …)</c>).
+		/// (<c>Controller.Nameplate.Set(Keys.Visible, ...)</c>).
 		/// </summary>
 		private DesktopController Controller {
 			get {
@@ -216,12 +216,17 @@ namespace Nox.Desktop.Connectors {
 				Cursor.lockState = CursorLockMode.None;
 				Cursor.visible   = false;
 			} else {
-				Cursor.lockState = anyOpen ? CursorLockMode.None : CursorLockMode.Locked;
+				Cursor.lockState = anyOpen
+					? CursorLockMode.None
+					: CursorLockMode.Locked;
 				Cursor.visible   = standardOpen;
 			}
 
 			if (ControllerLink != null)
 				ControllerLink.canInput = !anyOpen;
+
+			// Everything the mouse drives reads this: an open menu suspends the look, the walk, the wheel and the grabs.
+			DesktopInput.SetMenuOpen(anyOpen);
 
 			// Nameplates are only shown while a menu is open.
 			SyncNameplate(anyOpen);
