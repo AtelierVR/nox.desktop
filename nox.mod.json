@@ -61,7 +61,7 @@
       "register": "git+https://github.com/AtelierVR/nox.keybinding.git"
     },
     {
-      "id": "session",
+      "id": "sessions",
       "type": "depends",
       "version": ">=1.0.0",
       "register": "git+https://github.com/AtelierVR/nox.sessions.git"

@@ -20,7 +20,7 @@ namespace Nox.Desktop.Runtime {
 
 		internal static ISessionAPI SessionAPI
 			=> CoreAPI.ModAPI
-				.GetMod("session")
+				.GetMod("sessions")
 				.GetInstance<ISessionAPI>();
 
 		internal static IUiAPI UiAPI

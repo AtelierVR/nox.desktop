@@ -27,7 +27,11 @@
         "Nox.Worlds",
         "Nox.Avatars.Runtime",
         "Nox.CCK.Network",
-        "Nox.Network"
+        "Nox.Network",
+        "Nox.Assets",
+        "Nox.CCK.Assets",
+        "Nox.Interactions",
+        "Nox.CCK.Interactions"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
