@@ -40,7 +40,8 @@ namespace Nox.Desktop.Runtime {
 				{ "fly_speed", player.flySpeed },
 				{ "sprint_multiplier", player.sprintMultiplier },
 				{ "air_control", player.airControl },
-				{ "height", player.Height }
+				{ "height", player.Height },
+				{ "eye_height", EyeHeight }
 			};
 
 		[NoxPublic(NoxAccess.Method)]

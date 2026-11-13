@@ -131,14 +131,29 @@ namespace Nox.Desktop.Runtime {
 		public int GetPriority()
 			=> DefaultPriority;
 
-		public void Dispose() {
+		/// <summary>
+		/// Disposes the proxy and completes once its avatar is destroyed: the avatar writes what it has to
+		/// persist while it is disposed, and that write must end before the mods (and their table) go away.
+		/// </summary>
+		public UniTask Dispose() {
 			DisposeNameplate();
+			DisposeEyes();
 			Menu.Dispose();
-			avatarLoader?.Dispose();
-			Destroy(gameObject);
+
+			var avatar = avatarLoader != null
+				? avatarLoader.Dispose()
+				: UniTask.CompletedTask;
+
+			// Deferred: the avatar is a child of this object and finishes its write on this frame.
+			gameObject.Destroy();
+
+			return avatar;
 		}
 
-		private void Awake() => SetupNameplate();
+		private void Awake() {
+			SetupNameplate();
+			ResolveEyes();
+		}
 
 		private void Update() {
 			// The nameplate mod may be loaded after this proxy was created.
@@ -150,8 +165,16 @@ namespace Nox.Desktop.Runtime {
 		}
 
 		private void HandleZoomInput() {
+			// A menu, or a window that lost the focus: the wheel does not zoom the view.
+			if (DesktopInput.Blocked)
+				return;
+
 			// Vérifier si la souris n'est pas sur l'UI
 			if (EventSystem.current && EventSystem.current.IsPointerOverGameObject())
+				return;
+
+			// An object is carried: the wheel moves it nearer or farther, it must not zoom the view.
+			if (player && player.IsHolding)
 				return;
 
 			// Gérer le zoom avec la molette de la souris
