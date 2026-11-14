@@ -1,3 +1,5 @@
+using System;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using Nox.Avatars.Controllers;
 using Nox.CCK.Nameplate;
@@ -82,9 +84,13 @@ namespace Nox.Desktop.Runtime {
 		/// <summary>
 		/// Create the Desktop proxy if it is not already created.
 		/// </summary>
+		/// <param name="cancellationToken">
+		/// Owns the creation: the proxy and everything it instantiates (its menus) must not be built
+		/// once the caller is gone. Cancelled, the half-built proxy is dropped.
+		/// </param>
 		/// <returns></returns>
-		static async internal UniTask<bool> Make() {
-			if (!IsBetterThanCurrent())
+		static async internal UniTask<bool> Make(CancellationToken cancellationToken = default) {
+			if (!IsBetterThanCurrent() || cancellationToken.IsCancellationRequested)
 				return false;
 
 			var prefab = Client.CoreAPI.AssetAPI.GetAsset<GameObject>("desktop_proxy.prefab");
@@ -102,10 +108,16 @@ namespace Nox.Desktop.Runtime {
 				return false;
 			}
 
-			await desktop.Menu.Generate();
+			try {
+				await desktop.Menu.Generate(cancellationToken);
+				cancellationToken.ThrowIfCancellationRequested();
 
-			if (!await ControllerAPI.SetCurrent(desktop)) {
-				Logger.LogError("Failed to set Desktop proxy as current");
+				if (!await ControllerAPI.SetCurrent(desktop)) {
+					Logger.LogError("Failed to set Desktop proxy as current");						desktop.Menu.Dispose();					instance.Destroy();
+					return false;
+				}
+			} catch (OperationCanceledException) {
+				desktop.Menu.Dispose();
 				instance.Destroy();
 				return false;
 			}
@@ -118,8 +130,8 @@ namespace Nox.Desktop.Runtime {
 				desktop.avatarLoader.StartUserTracking();
 			}
 
-			desktop.gameObject.name = $"[{desktop.GetType().Name}_{ComponentExtension.GetId(desktop)}]";
-			DontDestroyOnLoad(desktop);
+			desktop.gameObject.name = $"[{desktop.GetType().Name}] {ComponentExtension.GetId(desktop)}";
+			desktop.gameObject.DontDestroyOnLoad();
 			return true;
 		}
 

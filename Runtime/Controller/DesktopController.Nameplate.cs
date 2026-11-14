@@ -1,3 +1,4 @@
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using Nox.CCK.Nameplate;
 using Nox.Nameplate;
@@ -46,7 +47,7 @@ namespace Nox.Desktop.Runtime {
 
 			UpdateNameplate();
 
-			CreateNameplateAsync(api, NameplateAnchor).Forget();
+			CreateNameplateAsync(api, NameplateAnchor, this.GetCancellationTokenOnDestroy()).Forget();
 		}
 
 		/// <summary>
@@ -65,10 +66,10 @@ namespace Nox.Desktop.Runtime {
 			NameplateAnchor.localPosition = new Vector3(0f, height + NameplateAnchorHeight, 0f);
 		}
 
-		private async UniTaskVoid CreateNameplateAsync(INameplateAPI api, Transform anchor) {
+		private async UniTaskVoid CreateNameplateAsync(INameplateAPI api, Transform anchor, CancellationToken cancellationToken) {
 			_creatingNameplate = true;
 			try {
-				var plate = await api.Instantiate(anchor);
+				var plate = await api.Instantiate(anchor, cancellationToken);
 				if (!plate.IsAlive())
 					return;
 

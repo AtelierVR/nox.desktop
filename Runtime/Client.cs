@@ -1,3 +1,4 @@
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using Nox.Avatars;
 using Nox.CCK.Mods.Cores;
@@ -12,6 +13,11 @@ using Nox.Users;
 namespace Nox.Desktop.Runtime {
 	public class Client : IClientModInitializer {
 		internal static IClientModCoreAPI CoreAPI;
+
+		private static CancellationTokenSource _lifetime;
+
+		internal static CancellationToken Lifetime
+			=> _lifetime?.Token ?? CancellationToken.None;
 
 		internal static IControllerAPI ControllerAPI
 			=> CoreAPI.ModAPI
@@ -59,21 +65,22 @@ namespace Nox.Desktop.Runtime {
 
 		public async UniTask OnInitializeClientAsync(IClientModCoreAPI api) {
 			CoreAPI = api;
-			Keybindings.Rebind();
 
-			// Le desktop est le contrôleur de repli. Quand un contrôleur de priorité
-			// supérieure (XR) prend la main, ce proxy est détruit ; s'il disparaît ensuite
-			// (sortie de VR, casque débranché) plus personne ne pilote le joueur. On le
-			// recrée donc dès que le contrôleur courant devient null.
+			_lifetime?.Cancel();
+			_lifetime = new CancellationTokenSource();
+
+			Keybindings.Rebind();
 			ControllerAPI.OnCurrentChanged.AddListener(OnCurrentControllerChanged);
 
-			await DesktopController.Make();
+			await DesktopController.Make(Lifetime);
 		}
 
 		public async UniTask OnDisposeClientAsync() {
-			// Se désabonner AVANT de retirer le contrôleur : sinon la disparition du
-			// contrôleur courant relancerait Make() pendant le teardown.
 			ControllerAPI?.OnCurrentChanged.RemoveListener(OnCurrentControllerChanged);
+
+			var lifetime = _lifetime;
+			_lifetime = null;
+			lifetime?.Cancel();
 
 			if (ControllerAPI.Current is DesktopController)
 				await ControllerAPI.SetCurrent(null);
@@ -89,7 +96,7 @@ namespace Nox.Desktop.Runtime {
 			if (controller != null)
 				return;
 
-			DesktopController.Make().Forget();
+			DesktopController.Make(Lifetime).Forget();
 		}
 	}
 }

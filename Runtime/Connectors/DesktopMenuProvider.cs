@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using Nox.CCK.UI;
 using Nox.CCK.Utils;
@@ -104,9 +105,9 @@ namespace Nox.Desktop.Connectors {
 				OpenRadial();
 		}
 
-		public async UniTask<bool> Generate() {
+		public async UniTask<bool> Generate(CancellationToken cancellationToken = default) {
 			if (Container != null) {
-				Menu = await Client.UiAPI.Make(this);
+				Menu = await Client.UiAPI.Make(this, cancellationToken);
 
 				if (Menu == null) {
 					Logger.LogError("Failed to create menu");
@@ -116,7 +117,7 @@ namespace Nox.Desktop.Connectors {
 			}
 
 			if (RadialContainer != null) {
-				RadialMenu = await Client.UiAPI.MakeRadial(this);
+				RadialMenu = await Client.UiAPI.MakeRadial(this, cancellationToken);
 
 				if (RadialMenu == null) {
 					Logger.LogError("Failed to create radial menu");
