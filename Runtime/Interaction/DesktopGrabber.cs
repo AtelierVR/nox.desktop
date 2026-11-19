@@ -160,7 +160,6 @@ namespace Nox.Desktop.Runtime.Interaction {
 
 				Scroll();
 				PlaceRayPoint();
-				Follow();
 				return;
 			}
 
@@ -217,7 +216,6 @@ namespace Nox.Desktop.Runtime.Interaction {
 
 			if (!TryGrab(_hovered, _hoverHit, input.duration)) return;
 
-			Follow();
 			RefreshHoldDistance();
 		}
 
@@ -226,7 +224,6 @@ namespace Nox.Desktop.Runtime.Interaction {
 			_pendingScroll = 0f;
 
 			if (!input.scroll || Mathf.Approximately(notches, 0f)) return;
-			if (HeldGrabbable is not IGrabHold held || held.Hold.fixedDistance) return;
 
 			var min = Mathf.Max(ray.min, _holdMinDistance);
 			var distance = _distance + Mathf.Clamp(notches, -3f, 3f) * input.step;
@@ -281,32 +278,12 @@ namespace Nox.Desktop.Runtime.Interaction {
 			return Mathf.Max(ray.min, ray.clearance + halfExtent - offset);
 		}
 
-		private void Follow() {
-			if (HeldGrabbable is GrabbableBase grabbable)
-				grabbable.FollowHeld(Time.deltaTime);
-		}
-
 		private float GrabDistance(IGrabbable grabbable, Transform origin, float hitDistance) {
-			var distance = MinHeadDistance(grabbable, origin, hitDistance);
-
-			if (grabbable is not IGrabHold held || !held.Hold.atHoldDistance)
-				return distance;
-
-			var target = held.Hold.distance > 0f
-				? held.Hold.distance
-				: ray.min;
-
-			return Mathf.Min(distance, Mathf.Max(ray.min, target));
+			return MinHeadDistance(grabbable, origin, hitDistance);
 		}
 
 		private float MinHeadDistance(IGrabbable grabbable, Transform origin, float hitDistance) {
-			if (grabbable is not GrabbableBase concrete || (concrete.Hold.snap & GrabSnap.Position) == 0)
-				return Mathf.Max(ray.min, hitDistance);
-
-			if (!TryGetBounds(grabbable, out var bounds))
-				return Mathf.Max(ray.min, hitDistance);
-
-			return Mathf.Max(ray.min, Vector3.Dot(bounds.center - origin.position, origin.forward));
+			return Mathf.Max(ray.min, hitDistance);
 		}
 
 		private static bool TryGetBounds(IGrabbable grabbable, out Bounds bounds) {
