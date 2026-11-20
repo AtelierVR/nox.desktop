@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Nox.CCK.Utils;
 using Nox.Desktop.Runtime.Interaction;
 using UnityEngine;
+using UnityEngine.Events;
 using Logger = Nox.CCK.Utils.Logger;
 using Transform = UnityEngine.Transform;
 
@@ -65,6 +66,28 @@ namespace Nox.Desktop.Runtime {
 		/// <summary>Tells the listeners that the pose of the view camera is final for this frame.</summary>
 		internal void NotifyViewPlaced()
 			=> ViewPlaced?.Invoke();
+
+		/// <summary>Smallest speed change that makes the player announce its velocity, in m/s.</summary>
+		private const float NotifyVelocity = 0.01f;
+
+		/// <summary>
+		/// Raised when the grounded state changes, from the physics step or from a forced grounding release.
+		/// The consumers animate with it instead of polling <see cref="IsGrounded"/> every frame.
+		/// </summary>
+		public readonly UnityEvent<bool> OnGroundedChanged = new();
+
+		/// <summary>
+		/// Raised when the velocity of the body changes by more than <see cref="NotifyVelocity"/>, from the
+		/// physics step: the consumers follow the locomotion instead of polling the rigidbody every frame.
+		/// </summary>
+		public readonly UnityEvent<Vector3> OnVelocityChanged = new();
+
+		private bool    _announcedGrounded;
+		private Vector3 _announcedVelocity;
+
+		/// <summary>Velocity of the body, in world units per second: what the locomotion consumes animate with.</summary>
+		public Vector3 LocomotionVelocity
+			=> body ? body.linearVelocity : Vector3.zero;
 
 		[Header("Movement")]
 		public bool useMovement = true;
@@ -162,11 +185,32 @@ namespace Nox.Desktop.Runtime {
 				return;
 			}
 
+			EnsureHeadCameraWithPlayer();
+
 			if (Interactor)
 				Interactor.View = headCamera;
 
 			if (Grabber)
 				Grabber.View = headCamera;
+		}
+
+		/// <summary>
+		/// Puts the head camera under the player when it is not already part of it, keeping its world
+		/// pose: the player root is the only node the look direction rotates, so a camera outside it
+		/// would send a head rotation that does not follow the body.
+		/// </summary>
+		private void EnsureHeadCameraWithPlayer() {
+			var head = headCamera.transform;
+			if (head.IsChildOf(transform))
+				return;
+
+			Logger.LogWarning(
+				$"head camera '{head.name}' is not a child of the player, moving it under the player so the view follows the body rotation.",
+				this,
+				nameof(DesktopPlayer)
+			);
+
+			head.SetParent(transform, true);
 		}
 
 		/// <summary>Sets move direction for this fixedupdate</summary>
@@ -235,15 +279,56 @@ namespace Nox.Desktop.Runtime {
 			=> crouching = crouch;
 
 		protected virtual void FixedUpdate() {
-			if (!useMovement)
+			if (useMovement) {
+				UpdateRigidbody();
+				Ground();
+
+				if (_isFlying)
+					CheckGroundWhileFlying();
+
+				UpdatePlayerHeight();
+			}
+
+			// Announced from the physics step rather than polled by the consumers: the velocity and the ground
+			// state are only read when they actually change.
+			AnnounceState();
+		}
+
+		/// <summary>Pushes the locomotion values that changed during this physics step.</summary>
+		private void AnnounceState() {
+			AnnounceGrounded();
+			AnnounceVelocity();
+		}
+
+		private void AnnounceGrounded() {
+			var grounded = IsGrounded();
+			if (_announcedGrounded == grounded)
 				return;
-			UpdateRigidbody();
-			Ground();
 
-			if (_isFlying)
-				CheckGroundWhileFlying();
+			_announcedGrounded = grounded;
+			OnGroundedChanged.Invoke(grounded);
+		}
 
-			UpdatePlayerHeight();
+		/// <summary>
+		/// Announces the velocity of the body. A slow decay (the flying drag, for instance) stops changing by more
+		/// than <see cref="NotifyVelocity"/> per step while the body still moves, which would leave the last
+		/// announced value above zero: it is snapped to zero as soon as the body is slower than the threshold, so
+		/// the consumers do not keep animating a residual speed.
+		/// </summary>
+		private void AnnounceVelocity() {
+			var velocity = LocomotionVelocity;
+
+			if ((velocity - _announcedVelocity).sqrMagnitude < NotifyVelocity * NotifyVelocity) {
+				if (_announcedVelocity == Vector3.zero || velocity.sqrMagnitude >= NotifyVelocity * NotifyVelocity)
+					return;
+
+				_announcedVelocity = Vector3.zero;
+				OnVelocityChanged.Invoke(Vector3.zero);
+				return;
+			}
+
+			_announcedVelocity = velocity;
+			OnVelocityChanged.Invoke(velocity);
 		}
 
 		protected virtual void UpdateRigidbody() {
@@ -460,6 +545,7 @@ namespace Nox.Desktop.Runtime {
 		IEnumerator DisableGroundingSecondsRoutine(float seconds) {
 			_tempDisableGrounding = true;
 			_isGrounded = false;
+			AnnounceGrounded();
 			yield return new WaitForSeconds(seconds);
 			_tempDisableGrounding = false;
 		}
