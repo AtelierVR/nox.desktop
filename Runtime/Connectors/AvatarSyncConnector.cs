@@ -2,7 +2,6 @@ using Nox.Avatars;
 using Nox.Avatars.Camera;
 using Nox.Avatars.Parameters;
 using Nox.CCK;
-using Nox.CCK.Mods.Events;
 using Nox.CCK.Utils;
 using Nox.Desktop.Runtime;
 using UnityEngine;
@@ -62,25 +61,17 @@ namespace Nox.Desktop.Connectors {
 		/// </summary>
 		private Vector3 _cameraOffset;
 
-		/// <summary>Subscription to the avatar changes, which is when the modules of the avatar are replaced.</summary>
-		private EventSubscription _onAvatarChanged;
-
-		// ReSharper disable Unity.PerformanceAnalysis
-		private void Update() {
-			SynchronizeParametersAvatar();
-
-			// The mod API is not necessarily up when this component is enabled: subscribe as soon as it is, so an
-			// avatar loaded later still updates the module the camera follows.
-			if (_onAvatarChanged == null && Client.CoreAPI != null)
-				_onAvatarChanged = Client.CoreAPI.EventAPI.Subscribe("controller_avatar_changed", OnAvatarChanged);
-		}
-
 		private void Start()
 			=> BindAvatar();
 
 		private void LateUpdate() {
 			RefreshCameraOffset();
 			SynchronizeCamera();
+
+			// The head pose has no event to follow (the rig writes it every frame), the locomotion has one
+			// (see OnGroundedChanged and OnVelocityChanged): only the head is read here.
+			SynchronizeHeadParameters();
+			SynchronizeHeight();
 		}
 
 		private void OnEnable() {
@@ -88,6 +79,11 @@ namespace Nox.Desktop.Connectors {
 
 			if (player)
 				player.HasViewSync = true;
+
+			if (avatarLoader)
+				avatarLoader.AvatarChanged.AddListener(OnAvatarChanged);
+
+			SubscribePlayer();
 
 			// OnDisable dropped the binding: a re-enabled connector must take the avatar back, since no avatar
 			// change is announced for it.
@@ -100,15 +96,34 @@ namespace Nox.Desktop.Connectors {
 			if (player)
 				player.HasViewSync = false;
 
-			if (_onAvatarChanged != null && Client.CoreAPI != null)
-				Client.CoreAPI.EventAPI.Unsubscribe(_onAvatarChanged);
+			if (avatarLoader)
+				avatarLoader.AvatarChanged.RemoveListener(OnAvatarChanged);
 
-			_onAvatarChanged = null;
+			UnsubscribePlayer();
 			UnbindAvatar();
 		}
 
+		/// <summary>Follows the locomotion of the player from its own announcements, not from a frame poll.</summary>
+		private void SubscribePlayer() {
+			if (!player)
+				return;
+
+			player.OnGroundedChanged.RemoveListener(WriteGrounded);
+			player.OnGroundedChanged.AddListener(WriteGrounded);
+			player.OnVelocityChanged.RemoveListener(WriteVelocity);
+			player.OnVelocityChanged.AddListener(WriteVelocity);
+		}
+
+		private void UnsubscribePlayer() {
+			if (!player)
+				return;
+
+			player.OnGroundedChanged.RemoveListener(WriteGrounded);
+			player.OnVelocityChanged.RemoveListener(WriteVelocity);
+		}
+
 		/// <summary>Another avatar was loaded (or reloaded): its modules replace the ones that were followed.</summary>
-		private void OnAvatarChanged(EventData context)
+		private void OnAvatarChanged(IRuntimeAvatar avatar)
 			=> BindAvatar();
 
 		/// <summary>
@@ -232,6 +247,12 @@ namespace Nox.Desktop.Connectors {
 			_headRotation = module.GetParameter(HeadRotationName);
 
 			ResolveHeight();
+
+			// A parameter that just joined has no value from this connector yet: give it one now instead of
+			// waiting for the next change.
+			WriteGrounded(player && player.IsGrounded());
+			WriteVelocity(player ? player.LocomotionVelocity : Vector3.zero);
+			SynchronizeHeadParameters();
 		}
 
 		/// <summary>Eye height of the avatar: the first of the two names the parameter module carries.</summary>
@@ -245,20 +266,34 @@ namespace Nox.Desktop.Connectors {
 				return;
 
 			switch (parameter.Name) {
-				case GroundedName: _grounded = parameter; break;
-				case VelocityName: _velocity = parameter; break;
-				case HeadPositionName: _headPosition = parameter; break;
-				case HeadRotationName: _headRotation = parameter; break;
+				case GroundedName:
+					_grounded = parameter;
+					WriteGrounded(player && player.IsGrounded());
+					break;
+
+				case VelocityName:
+					_velocity = parameter;
+					WriteVelocity(player ? player.LocomotionVelocity : Vector3.zero);
+					break;
+
+				case HeadPositionName:
+					_headPosition = parameter;
+					SynchronizeHeadParameters();
+					break;
+
+				case HeadRotationName:
+					_headRotation = parameter;
+					SynchronizeHeadParameters();
+					break;
+
 				case HeightName:
-				case HeightEyeName: ResolveHeight(); break;
+				case HeightEyeName:
+					ResolveHeight();
+					break;
 
 				default:
 					return;
 			}
-
-			// The parameter has no value from this connector yet: write it now instead of waiting for the next frame
-			// (same rule as the v2 controller's movement parameters).
-			SynchronizeParametersAvatar();
 		}
 
 		/// <summary>A parameter left the module: the cached reference must not outlive it.</summary>
@@ -305,47 +340,68 @@ namespace Nox.Desktop.Connectors {
 			player.NotifyViewPlaced();
 		}
 
-		// ReSharper disable Unity.PerformanceAnalysis
-		private void SynchronizeParametersAvatar() {
-			// Nothing to write, and no head to read: the whole method is skipped while no avatar is bound.
+		/// <summary>The player landed or left the ground: only the grounded parameter changed.</summary>
+		private void WriteGrounded(bool grounded) {
+			if (_grounded == null)
+				return;
+
+			if ((bool)_grounded.Value == grounded)
+				return;
+
+			_grounded.Value = grounded;
+		}
+
+		/// <summary>
+		/// Velocity of the body announced by the player, expressed in the frame of the view so a locomotion blend
+		/// tree makes the legs follow the player. Writing the vector also writes <c>Velocity/X</c>, <c>/Y</c>,
+		/// <c>/Z</c> and <c>/Magnitude</c> (see <c>Vector3ParameterProvider</c>).
+		/// </summary>
+		private void WriteVelocity(Vector3 worldVelocity) {
+			if (_velocity == null)
+				return;
+
+			var localVelocity = transform.InverseTransformDirection(worldVelocity);
+			if (Vector3.Distance(_velocity.Value.ToVector3(), localVelocity) < 0.0001f)
+				return;
+
+			_velocity.Value = localVelocity;
+		}
+
+		/// <summary>
+		/// Head pose of the view. Unlike the locomotion it has no event to follow (the rig writes the head every
+		/// frame), so it is read from <see cref="LateUpdate"/>, once the camera of the frame is placed.
+		/// </summary>
+		private void SynchronizeHeadParameters() {
 			if (!player)
 				return;
 
-			if (_grounded != null) {
-				var grounded = player.IsGrounded();
-				if ((bool)_grounded.Value != grounded)
-					_grounded.Value = grounded;
-			}
+			var head = player.headCamera;
+			if (!head)
+				return;
 
-			// The body is read once, and only when the avatar exposes the velocity.
-			if (_velocity != null) {
-				var body = player.body;
-				var worldVelocity = body != null ? body.linearVelocity : Vector3.zero;
-				var localVelocity = transform.InverseTransformDirection(worldVelocity);
-
-				// Writing the vector also writes its components (Velocity/X, /Y, /Z and /Magnitude).
-				if (_velocity.Value.ToVector3() != localVelocity)
-					_velocity.Value = localVelocity;
-			}
-
-			// The head is only read when something uses it: a tracking parameter, or the height fallback below.
-			var head = _headPosition != null || _headRotation != null || _height == null
-				? player.headCamera
-				: null;
-
-			if (_headPosition != null && head) {
+			if (_headPosition != null) {
 				var position = head.transform.position;
 				if (Vector3.Distance(_headPosition.Value.ToVector3(), position) >= 0.001f)
 					_headPosition.Value = position;
 			}
 
-			if (_headRotation != null && head) {
+			if (_headRotation != null) {
 				var rotation = head.transform.rotation;
 				if (Quaternion.Angle(_headRotation.Value.ToQuaternion(), rotation) >= 0.001f)
 					_headRotation.Value = rotation;
 			}
+		}
 
-			// Without a height parameter, the head above the player is the reference.
+		/// <summary>
+		/// Maximum height of the player: the height parameter of the avatar when it carries one, the head above the
+		/// player otherwise.
+		/// </summary>
+		private void SynchronizeHeight() {
+			if (!player)
+				return;
+
+			var head = player.headCamera;
+
 			float maxHeight;
 			if (_height != null)
 				maxHeight = _height.Value.ToFloat();

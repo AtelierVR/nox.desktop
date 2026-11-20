@@ -14,6 +14,7 @@ using Nox.CCK.Utils;
 using Nox.Desktop.Runtime;
 using Nox.Users;
 using UnityEngine;
+using UnityEngine.Events;
 using Logger = Nox.CCK.Utils.Logger;
 
 namespace Nox.Desktop.Connectors
@@ -21,6 +22,12 @@ namespace Nox.Desktop.Connectors
 	public class AvatarLoaderConnector : MonoBehaviour
 	{
 		public DesktopController Controller;
+
+		/// <summary>
+		/// Raised when the avatar of this connector is replaced and its descriptor is ready to be read.
+		/// Lets the connectors that follow the avatar rebind without waiting for the mod event pipeline.
+		/// </summary>
+		public readonly UnityEvent<IRuntimeAvatar> AvatarChanged = new();
 
 		private IRuntimeAvatar _runtime;
 		private CancellationTokenSource _context;
@@ -140,6 +147,7 @@ namespace Nox.Desktop.Connectors
 			if (parameterModule == null) {
 				Logger.LogWarning("Avatar has no parameter module, cannot configure tracking parameters.");
 				root.SetActive(true);
+				AvatarChanged.Invoke(_runtime);
 				Client.CoreAPI.EventAPI.Emit("controller_avatar_changed", this, _runtime);
 				return true;
 			}
@@ -175,6 +183,7 @@ namespace Nox.Desktop.Connectors
 				}
 
 			root.SetActive(true);
+			AvatarChanged.Invoke(_runtime);
 			Client.CoreAPI.EventAPI.Emit("controller_avatar_changed", this, _runtime);
 			return true;
 		}
