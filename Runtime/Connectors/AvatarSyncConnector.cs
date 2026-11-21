@@ -26,12 +26,18 @@ namespace Nox.Desktop.Connectors {
 		/// Locomotion vector. Writing it also writes <c>Velocity/X</c>, <c>Velocity/Y</c>, <c>Velocity/Z</c> and
 		/// <c>Velocity/Magnitude</c> (see <c>Vector3ParameterProvider</c>): its components are never set on their own.
 		/// </summary>
-		private const string VelocityName = "Velocity";
+		private const string VELOCITY_NAME = "Velocity";
 
-		private const string HeadPositionName = "Tracking/Head/Position";
-		private const string HeadRotationName = "Tracking/Head/Rotation";
-		private const string HeightName       = "Height";
-		private const string HeightEyeName    = "Height/Eye";
+		private const string HEAD_POSITION_NAME = "Tracking/Head/Position";
+		private const string HEAD_ROTATION_NAME = "Tracking/Head/Rotation";
+		private const string HEIGHT_NAME = "Height";
+		private const string HEIGHT_EYE_NAME = "Height/Eye";
+
+		/// <summary>
+		/// Weights of the IK chain that carries the head (<c>Chest → Neck → Head</c>, layer <c>RigIK_Spine</c>).
+		/// </summary>
+		private const string HEAD_POSITION_WEIGHT_NAME = "Rig/Ik/Spine/PositionWeight";
+		private const string HEAD_HINT_WEIGHT_NAME = "Rig/Ik/Spine/HintWeight";
 
 		/// <summary>Descriptor of the followed avatar: its module events drive the binding below.</summary>
 		private IAvatarDescriptor _descriptor;
@@ -52,6 +58,8 @@ namespace Nox.Desktop.Connectors {
 		private IParameter _velocity;
 		private IParameter _headPosition;
 		private IParameter _headRotation;
+		private IParameter _headPositionWeight;
+		private IParameter _headHintWeight;
 		private IParameter _height;
 
 		/// <summary>
@@ -66,12 +74,43 @@ namespace Nox.Desktop.Connectors {
 
 		private void LateUpdate() {
 			RefreshCameraOffset();
+			ApplyHeadPositionWeight();
 			SynchronizeCamera();
 
 			// The head pose has no event to follow (the rig writes it every frame), the locomotion has one
 			// (see OnGroundedChanged and OnVelocityChanged): only the head is read here.
 			SynchronizeHeadParameters();
 			SynchronizeHeight();
+		}
+
+		/// <summary>
+		/// A desktop head is not tracked: only its rotation is real. The head is solved by the upper spine IK
+		/// (<c>Chest → Neck → Head</c>, target <c>IK_Head</c>), so its translation and hint weights are dropped:
+		/// the rig keeps the head on the neck instead of pulling the chain onto a target the player never moves,
+		/// which stretched the neck away from the body.
+		/// </summary>
+		private void ApplyHeadPositionWeight() {
+			if (_headPositionWeight == null || _headHintWeight == null) {
+				var module = _parameterModule;
+				if (module == null)
+					return;
+
+				_headPositionWeight ??= module.GetParameter(HEAD_POSITION_WEIGHT_NAME);
+				_headHintWeight ??= module.GetParameter(HEAD_HINT_WEIGHT_NAME);
+			}
+
+			SetWeight(_headPositionWeight, 0f);
+			SetWeight(_headHintWeight, 0f);
+		}
+
+		private static void SetWeight(IParameter parameter, float weight) {
+			if (parameter == null || parameter.ValueType != ParameterType.Float)
+				return;
+
+			if (Mathf.Approximately(parameter.Value.ToFloat(), weight))
+				return;
+
+			parameter.Value = weight;
 		}
 
 		private void OnEnable() {
@@ -229,6 +268,8 @@ namespace Nox.Desktop.Connectors {
 			_velocity = null;
 			_headPosition = null;
 			_headRotation = null;
+			_headPositionWeight = null;
+			_headHintWeight = null;
 			_height = null;
 		}
 
@@ -242,11 +283,16 @@ namespace Nox.Desktop.Connectors {
 				return;
 
 			_grounded = module.GetParameter(GroundedName);
-			_velocity = module.GetParameter(VelocityName);
-			_headPosition = module.GetParameter(HeadPositionName);
-			_headRotation = module.GetParameter(HeadRotationName);
+			_velocity = module.GetParameter(VELOCITY_NAME);
+			_headPosition = module.GetParameter(HEAD_POSITION_NAME);
+			_headRotation = module.GetParameter(HEAD_ROTATION_NAME);
+			_headPositionWeight = module.GetParameter(HEAD_POSITION_WEIGHT_NAME);
+			_headHintWeight = module.GetParameter(HEAD_HINT_WEIGHT_NAME);
 
 			ResolveHeight();
+
+			// The head of a desktop player is not tracked: only the rotation is published.
+			ApplyHeadPositionWeight();
 
 			// A parameter that just joined has no value from this connector yet: give it one now instead of
 			// waiting for the next change.
@@ -257,8 +303,8 @@ namespace Nox.Desktop.Connectors {
 
 		/// <summary>Eye height of the avatar: the first of the two names the parameter module carries.</summary>
 		private void ResolveHeight()
-			=> _height = _parameterModule?.GetParameter(HeightName)
-				?? _parameterModule?.GetParameter(HeightEyeName);
+			=> _height = _parameterModule?.GetParameter(HEIGHT_NAME)
+				?? _parameterModule?.GetParameter(HEIGHT_EYE_NAME);
 
 		/// <summary>A parameter joined the module: kept only when this connector drives it.</summary>
 		private void OnParameterRegistered(IParameter parameter) {
@@ -271,23 +317,33 @@ namespace Nox.Desktop.Connectors {
 					WriteGrounded(player && player.IsGrounded());
 					break;
 
-				case VelocityName:
+				case VELOCITY_NAME:
 					_velocity = parameter;
 					WriteVelocity(player ? player.LocomotionVelocity : Vector3.zero);
 					break;
 
-				case HeadPositionName:
+				case HEAD_POSITION_NAME:
 					_headPosition = parameter;
 					SynchronizeHeadParameters();
 					break;
 
-				case HeadRotationName:
+				case HEAD_ROTATION_NAME:
 					_headRotation = parameter;
 					SynchronizeHeadParameters();
 					break;
 
-				case HeightName:
-				case HeightEyeName:
+				case HEAD_POSITION_WEIGHT_NAME:
+					_headPositionWeight = parameter;
+					ApplyHeadPositionWeight();
+					break;
+
+				case HEAD_HINT_WEIGHT_NAME:
+					_headHintWeight = parameter;
+					ApplyHeadPositionWeight();
+					break;
+
+				case HEIGHT_NAME:
+				case HEIGHT_EYE_NAME:
 					ResolveHeight();
 					break;
 
@@ -301,10 +357,18 @@ namespace Nox.Desktop.Connectors {
 			if (parameter == null)
 				return;
 
-			if (ReferenceEquals(_grounded, parameter)) _grounded = null;
-			if (ReferenceEquals(_velocity, parameter)) _velocity = null;
-			if (ReferenceEquals(_headPosition, parameter)) _headPosition = null;
-			if (ReferenceEquals(_headRotation, parameter)) _headRotation = null;
+			if (ReferenceEquals(_grounded, parameter))
+				_grounded = null;
+			if (ReferenceEquals(_velocity, parameter))
+				_velocity = null;
+			if (ReferenceEquals(_headPosition, parameter))
+				_headPosition = null;
+			if (ReferenceEquals(_headRotation, parameter))
+				_headRotation = null;
+			if (ReferenceEquals(_headPositionWeight, parameter))
+				_headPositionWeight = null;
+			if (ReferenceEquals(_headHintWeight, parameter))
+				_headHintWeight = null;
 
 			if (ReferenceEquals(_height, parameter))
 				ResolveHeight();
@@ -379,8 +443,13 @@ namespace Nox.Desktop.Connectors {
 			if (!head)
 				return;
 
+			var anchor = _cameraAnchor
+				? _cameraAnchor
+				: head.transform;
+
 			if (_headPosition != null) {
-				var position = head.transform.position;
+				var position = anchor.position;
+
 				if (Vector3.Distance(_headPosition.Value.ToVector3(), position) >= 0.001f)
 					_headPosition.Value = position;
 			}

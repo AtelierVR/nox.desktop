@@ -5,7 +5,9 @@ using Nox.CCK.Utils;
 using Nox.Controllers;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.Events;
 using Logger = Nox.CCK.Utils.Logger;
+using System;
 
 namespace Nox.Desktop.Runtime {
 	/// <summary>
@@ -18,12 +20,17 @@ namespace Nox.Desktop.Runtime {
 		public Camera GetCamera()
 			=> player.headCamera;
 
+		/// <summary>Colliders of the body: the capsule and the extras of the player (avatar parts, worn props).</summary>
+		public IReadOnlyList<Collider> GetColliders()
+			=> player
+				? player.BodyColliders 
+				: Array.Empty<Collider>();
+
+		/// <summary>Invoked when the body of the player gained or lost a collider.</summary>
+		public UnityEvent<IController> OnCollidersChanged { get; } = new();
+
 		public EventSystem GetEventSystem()
 			=> eventSystem;
-
-		[NoxPublic(NoxAccess.Method)]
-		public Collider GetCollider()
-			=> player.bodyCollider;
 
 		[NoxPublic(NoxAccess.Method)]
 		public Dictionary<string, object> GetAbilities()
@@ -102,7 +109,9 @@ namespace Nox.Desktop.Runtime {
 					p => p.Key,
 					p => {
 						var rb = p.Value.GetComponent<Rigidbody>();
-						return new TransformObject(p.Value, rb);
+						return p.Key == EntityRig.Head.ToIndex()
+							? HeadPart(p.Value)
+							: new TransformObject(p.Value, rb);
 					}
 				);
 
@@ -112,12 +121,22 @@ namespace Nox.Desktop.Runtime {
 				return false;
 			}
 
-			var rb = part.TryGetComponent<Rigidbody>(out var rigid)
-				? rigid
-				: null;
-			tr = new TransformObject(part, rb);
+			tr = index == EntityRig.Head.ToIndex()
+				? HeadPart(part)
+				: new TransformObject(part, part.TryGetComponent<Rigidbody>(out var rigid) ? rigid : null);
 
 			return true;
+		}
+
+		/// <summary>
+		/// The head of a desktop player only turns: it has no head tracking, so it must not carry a
+		/// position. The camera sits in front of the neck, and the viewers would take that point as the
+		/// head, which drags the head away from the body (the IK head target is written with it).
+		/// </summary>
+		private static TransformObject HeadPart(Transform head) {
+			var tr = new TransformObject();
+			tr.SetRotation(head.rotation);
+			return tr;
 		}
 
 		// ReSharper disable Unity.PerformanceAnalysis
