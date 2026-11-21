@@ -165,7 +165,18 @@ namespace Nox.Desktop.Runtime {
 		private void Awake() {
 			SetupNameplate();
 			ResolveEyes();
+
+			if (player)
+				player.OnBodyCollidersChanged.AddListener(OnBodyCollidersChanged);
 		}
+
+		private void OnDestroy() {
+			if (player)
+				player.OnBodyCollidersChanged.RemoveListener(OnBodyCollidersChanged);
+		}
+
+		private void OnBodyCollidersChanged(DesktopPlayer _)
+			=> OnCollidersChanged.Invoke(this);
 
 		private void Update() {
 			// The nameplate mod may be loaded after this proxy was created.

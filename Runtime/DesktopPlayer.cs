@@ -35,6 +35,9 @@ namespace Nox.Desktop.Runtime {
 		public IReadOnlyList<Collider> BodyColliders
 			=> _bodyColliders;
 
+		/// <summary>Invoked when the colliders of the body changed (see <see cref="RefreshBodyColliders"/>).</summary>
+		public readonly UnityEvent<DesktopPlayer> OnBodyCollidersChanged = new();
+
 		/// <summary>Near/far interaction ray of the desktop view (grabs the shared grabbables).</summary>
 		public DesktopInteractor Interactor { get; private set; }
 
@@ -106,7 +109,7 @@ namespace Nox.Desktop.Runtime {
 		public float crouchHeight = 0.6f;
 		public float heightSmoothSpeed = 10f;
 		public bool autoAdjustColliderHeight = true;
-		public Vector2 minMaxHeight = new(0.5f, 2.5f);
+		public Vector2 minMaxHeight = new(Constants.MINIMUM_BODY_HEIGHT, Constants.MAXIMUM_BODY_HEIGHT);
 
 		[Header("Grounding")]
 		public bool useGrounding = true;
@@ -177,6 +180,8 @@ namespace Nox.Desktop.Runtime {
 				if (collider && !_bodyColliders.Contains(collider))
 					_bodyColliders.Add(collider);
 			}
+
+			OnBodyCollidersChanged.Invoke(this);
 		}
 
 		public virtual void Start() {
